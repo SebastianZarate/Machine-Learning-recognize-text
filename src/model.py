@@ -9,10 +9,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import MiniBatchKMeans
 
-# NLTK tokenization and stopwords
+# NLTK tokenization, stopwords, and lemmatization
 import nltk
 from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
+from nltk.corpus import stopwords, wordnet
+from nltk.stem import WordNetLemmatizer
+from nltk import pos_tag
 
 # Ensure NLTK punkt tokenizer is available
 try:
@@ -30,42 +32,110 @@ except LookupError:
     nltk.download('stopwords', quiet=True)
     print("✓ Stopwords descargados")
 
+# Ensure NLTK WordNet is available (for lemmatization)
+try:
+    wordnet.ensure_loaded()
+except LookupError:
+    print("Descargando recursos NLTK (wordnet)...")
+    nltk.download('wordnet', quiet=True)
+    print("✓ WordNet descargado")
+
+# Ensure NLTK averaged_perceptron_tagger is available (for POS tagging)
+try:
+    nltk.data.find('taggers/averaged_perceptron_tagger_eng')
+except LookupError:
+    print("Descargando recursos NLTK (averaged_perceptron_tagger_eng)...")
+    nltk.download('averaged_perceptron_tagger_eng', quiet=True)
+    print("✓ POS tagger descargado")
+
 # Load English stopwords as a set for O(1) lookup performance
 STOP_WORDS = set(stopwords.words('english'))
 
+# Initialize lemmatizer globally (avoid recreating for each call)
+LEMMATIZER = WordNetLemmatizer()
 
-def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = True) -> str:
-    """Clean and tokenize text using NLTK word_tokenize with stopword removal.
+
+def get_wordnet_pos(treebank_tag: str) -> str:
+    """Map Penn Treebank POS tags to WordNet POS tags.
     
-    This function:
+    NLTK's pos_tag() returns Penn Treebank tags (e.g., 'NN', 'VBD', 'JJ'),
+    but WordNetLemmatizer expects WordNet tags ('n', 'v', 'a', 'r').
+    
+    This function maps between the two tag systems for accurate lemmatization.
+    
+    Args:
+        treebank_tag: Penn Treebank POS tag from NLTK pos_tag()
+    
+    Returns:
+        WordNet POS tag ('n', 'v', 'a', 'r', or 'n' as default)
+    
+    Mapping:
+        - J* (JJ, JJR, JJS) → 'a' (adjective)
+        - V* (VB, VBD, VBG, VBN, VBP, VBZ) → 'v' (verb)
+        - N* (NN, NNS, NNP, NNPS) → 'n' (noun)
+        - R* (RB, RBR, RBS) → 'r' (adverb)
+        - Default → 'n' (noun)
+    
+    Examples:
+        >>> get_wordnet_pos('VBD')  # past tense verb
+        'v'
+        >>> get_wordnet_pos('JJR')  # comparative adjective
+        'a'
+        >>> get_wordnet_pos('NNS')  # plural noun
+        'n'
+    """
+    if treebank_tag.startswith('J'):
+        return wordnet.ADJ  # 'a'
+    elif treebank_tag.startswith('V'):
+        return wordnet.VERB  # 'v'
+    elif treebank_tag.startswith('N'):
+        return wordnet.NOUN  # 'n'
+    elif treebank_tag.startswith('R'):
+        return wordnet.ADV  # 'r'
+    else:
+        return wordnet.NOUN  # 'n' (default)
+
+
+def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = True, lemmatize: bool = True) -> str:
+    """Clean and tokenize text using NLTK with stopword removal and lemmatization.
+    
+    This function performs a complete NLP preprocessing pipeline:
     1. Removes HTML tags
     2. Tokenizes using NLTK (handles contractions like "don't" → ["do", "n't"])
     3. Cleans each token individually (removes non-alphanumeric except accents)
     4. Converts to lowercase
     5. Filters out empty tokens
     6. Removes stopwords (optional, enabled by default)
+    7. Lemmatizes with POS tagging (optional, enabled by default)
     
     Args:
         text: Input text to clean
         return_tokens: If True, returns list of tokens; if False, returns joined string
         remove_stopwords: If True, filters out English stopwords (default: True)
+        lemmatize: If True, applies lemmatization with POS tagging (default: True)
     
     Returns:
         Cleaned text as string (or list of tokens if return_tokens=True)
     
     Examples:
-        >>> clean_text("I don't like this movie!")
-        "like movie"  # 'i', 'do', 'n't', 'this' are stopwords
+        >>> clean_text("The movies were amazing!")
+        "movie amazing"  # 'movies' → 'movie', stopwords removed
         
-        >>> clean_text("It's great!", return_tokens=True)
-        ['great']  # 'it', "'s" are stopwords
+        >>> clean_text("I loved the acting", return_tokens=True)
+        ['love', 'act']  # 'loved' → 'love', 'acting' → 'act'
         
-        >>> clean_text("The best movie I've seen", remove_stopwords=False)
-        "the best movie i 've seen"  # stopwords preserved
+        >>> clean_text("better films", lemmatize=True)
+        "good film"  # 'better' → 'good' (with POS tagging)
+        
+        >>> clean_text("running quickly", lemmatize=False)
+        "running quickly"  # lemmatization disabled
     
     Note:
-        Stopwords are stored as a set (STOP_WORDS) for O(1) lookup performance.
-        With 179 English stopwords, this is significantly faster than list lookup O(n).
+        - Stopwords use set() for O(1) lookup performance
+        - Lemmatization uses POS tagging for accurate results:
+          * Without POS: "better" stays "better" (assumes noun)
+          * With POS: "better" → "good" (correctly identified as adjective)
+        - POS tagging adds ~20-30% processing time but significantly improves quality
     """
     if not isinstance(text, str):
         text = str(text)
@@ -95,7 +165,27 @@ def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = 
     if remove_stopwords:
         cleaned_tokens = [token for token in cleaned_tokens if token not in STOP_WORDS]
     
-    # Step 5: Return as list or joined string
+    # Step 5: Lemmatization with POS tagging
+    if lemmatize and cleaned_tokens:
+        try:
+            # Get POS tags for remaining tokens (after stopword removal)
+            pos_tagged = pos_tag(cleaned_tokens)
+            
+            # Lemmatize each token with its corresponding POS tag
+            lemmatized_tokens = []
+            for word, pos in pos_tagged:
+                # Map Penn Treebank POS tag to WordNet POS tag
+                wordnet_pos = get_wordnet_pos(pos)
+                # Apply lemmatization with POS context
+                lemma = LEMMATIZER.lemmatize(word, pos=wordnet_pos)
+                lemmatized_tokens.append(lemma)
+            
+            cleaned_tokens = lemmatized_tokens
+        except Exception as e:
+            # If lemmatization fails, continue with non-lemmatized tokens
+            print(f"⚠️  Lemmatization failed: {e}. Skipping lemmatization.")
+    
+    # Step 6: Return as list or joined string
     if return_tokens:
         return cleaned_tokens
     else:
