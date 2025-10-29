@@ -3,7 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0+-orange.svg)
 ![Tkinter](https://img.shields.io/badge/GUI-Tkinter-green.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 Sistema inteligente de clasificación de texto desarrollado con **Machine Learning** para identificar y clasificar reseñas cinematográficas. Este proyecto utiliza técnicas avanzadas de procesamiento de lenguaje natural (NLP) combinando análisis de palabras clave con similitud coseno basada en vectorización TF-IDF.
 
@@ -479,35 +478,6 @@ KEYWORD_WEIGHT = 0.20
 - [ ] **Detección de Géneros:** Clasificar el género cinematográfico
 - [ ] **Sistema de Recomendación:** Sugerir películas basadas en preferencias
 
-## 👥 Contribuciones
-
-¡Las contribuciones son bienvenidas! Si deseas mejorar este proyecto:
-
-1. Fork el repositorio
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-### Áreas de Contribución
-
-- 🐛 Reportar bugs
-- 💡 Sugerir nuevas funcionalidades
-- 📝 Mejorar documentación
-- 🧪 Agregar tests
-- 🎨 Mejorar la interfaz gráfica
-- 🌍 Traducir a otros idiomas
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más detalles.
-
-## 👨‍💻 Autor
-
-**Sebastian Zarate**
-- GitHub: [@SebastianZarate](https://github.com/SebastianZarate)
-- Proyecto: [Machine-Learning-recognize-text](https://github.com/SebastianZarate/Machine-Learning-recognize-text)
-
 ---
 
 ## 🎓 Contexto Académico
@@ -518,25 +488,3 @@ Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para má
 **Año:** 2025
 
 ---
-
-## ❓ FAQ
-
-### ¿Por qué el entrenamiento tarda tanto?
-
-El procesamiento de 50,000 reseñas con TF-IDF requiere recursos computacionales. En equipos modernos toma 30-60 segundos.
-
-### ¿Puedo usar mi propio dataset?
-
-Sí, el archivo CSV debe tener una columna llamada `review` con los textos.
-
-### ¿Funciona con textos en español?
-
-Sí, pero la precisión es menor. Recomendamos agregar palabras clave en español en `model.py`.
-
-### ¿El modelo se guarda automáticamente?
-
-Sí, después de entrenar se guarda en `models/review_model.joblib` y se puede reutilizar.
-
-### ¿Cuánta memoria RAM necesito?
-
-Mínimo 4GB RAM. Recomendado: 8GB o más para procesamiento eficiente.

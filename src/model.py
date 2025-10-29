@@ -98,10 +98,17 @@ def train_from_csv(csv_path: str, model_path: str = "models/review_model.joblib"
 
     Devuelve la ruta al modelo guardado.
     """
+    print("\n" + "="*70)
+    print("🚀 INICIO DEL PROCESO DE ENTRENAMIENTO")
+    print("="*70 + "\n")
+    
     if keywords is None:
         keywords = DEFAULT_KEYWORDS
-
+    
+    print(f"📂 Cargando dataset desde: {csv_path}")
     df = pd.read_csv(csv_path)
+    print(f"✓ Dataset cargado: {len(df)} registros encontrados\n")
+    
     # Soporte básico: buscar columna 'review' o 'text'
     col = None
     for c in ("review", "text", "texto"):
@@ -110,40 +117,85 @@ def train_from_csv(csv_path: str, model_path: str = "models/review_model.joblib"
             break
     if col is None:
         raise ValueError("El CSV debe contener una columna 'review' o 'text' con los textos de reseña.")
-
+    
+    print(f"📝 Columna de texto detectada: '{col}'")
+    print(f"🧹 Limpiando y procesando {len(df)} textos...")
+    
     texts = df[col].astype(str).apply(clean_text).tolist()
-
+    print(f"✓ Textos procesados correctamente\n")
+    
+    print(f"🔧 Configurando vectorizador TF-IDF...")
+    print(f"   • max_features: 10000")
+    print(f"   • ngram_range: (1, 2)")
+    
     vectorizer = TfidfVectorizer(max_features=10000, ngram_range=(1, 2))
+    
+    print(f"\n⚙️  Entrenando vectorizador TF-IDF...")
     X = vectorizer.fit_transform(texts)
+    print(f"✓ Vectorización completada")
+    print(f"   • Matriz generada: {X.shape[0]} documentos x {X.shape[1]} características\n")
 
     # intentamos calcular centroides por clustering (más robusto que el vector promedio)
     centroids = None
     try:
+        print(f"🔍 Calculando centroides mediante clustering...")
+        
         # reducir muestra si el dataset es grande
         if X.shape[0] > sample_limit:
-            # sample indices without replacement
+            print(f"   • Dataset grande detectado ({X.shape[0]} documentos)")
+            print(f"   • Reduciendo muestra a {sample_limit} documentos para clustering")
             idx = np.random.choice(X.shape[0], sample_limit, replace=False)
             X_sample = X[idx]
         else:
             X_sample = X
+            print(f"   • Usando dataset completo para clustering ({X.shape[0]} documentos)")
 
-        kmeans = MiniBatchKMeans(n_clusters=min(n_clusters, X_sample.shape[0]), random_state=123)
+        actual_clusters = min(n_clusters, X_sample.shape[0])
+        print(f"   • Número de clusters: {actual_clusters}")
+        print(f"   • Ejecutando MiniBatchKMeans...")
+        
+        kmeans = MiniBatchKMeans(n_clusters=actual_clusters, random_state=123)
         kmeans.fit(X_sample)
         centroids = kmeans.cluster_centers_
+        
+        print(f"✓ Clustering completado: {centroids.shape[0]} centroides generados")
+
         # Normalizar centroides (L2) para que la similitud coseno funcione mejor
         try:
+            print(f"   • Normalizando centroides (L2)...")
             norms = np.linalg.norm(centroids, axis=1, keepdims=True)
             norms[norms == 0] = 1.0
             centroids = centroids / norms
-        except Exception:
-            # si algo falla, dejamos los centroides tal cual
-            pass
-    except Exception:
-        # fallback: vector promedio
+            print(f"✓ Centroides normalizados correctamente\n")
+        except Exception as e:
+            print(f"⚠️  Advertencia: No se pudieron normalizar centroides: {e}\n")
+            
+    except Exception as e:
+        print(f"⚠️  Advertencia: Clustering falló, usando vector promedio")
+        print(f"   Error: {e}")
         centroids = np.asarray(X.mean(axis=0)).ravel().reshape(1, -1)
+        print(f"✓ Vector promedio calculado como fallback\n")
 
+    print(f"💾 Guardando modelo en: {model_path}")
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    joblib.dump({"vectorizer": vectorizer, "centroids": centroids, "keywords": keywords}, model_path)
+    
+    model_data = {
+        "vectorizer": vectorizer, 
+        "centroids": centroids, 
+        "keywords": keywords
+    }
+    
+    joblib.dump(model_data, model_path)
+    
+    file_size = os.path.getsize(model_path) / 1024 / 1024  # MB
+    print(f"✓ Modelo guardado exitosamente")
+    print(f"   • Tamaño del archivo: {file_size:.2f} MB")
+    print(f"   • Palabras clave incluidas: {len(keywords)}")
+    
+    print("\n" + "="*70)
+    print("✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE")
+    print("="*70 + "\n")
+    
     return model_path
 
 
