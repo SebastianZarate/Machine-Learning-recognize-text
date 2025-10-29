@@ -96,46 +96,59 @@ def get_wordnet_pos(treebank_tag: str) -> str:
         return wordnet.NOUN  # 'n' (default)
 
 
-def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = True, lemmatize: bool = True) -> str:
-    """Clean and tokenize text using NLTK with stopword removal and lemmatization.
+def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = True, lemmatize: bool = True, 
+               normalize_numbers: str = 'remove') -> str:
+    """Clean and tokenize text using NLTK with advanced preprocessing.
     
     This function performs a complete NLP preprocessing pipeline:
     1. Removes HTML tags
-    2. Tokenizes using NLTK (handles contractions like "don't" → ["do", "n't"])
-    3. Cleans each token individually (removes non-alphanumeric except accents)
-    4. Converts to lowercase
-    5. Filters out empty tokens
-    6. Removes stopwords (optional, enabled by default)
-    7. Lemmatizes with POS tagging (optional, enabled by default)
+    2. Removes URLs and emails
+    3. Processes mentions (@user) and hashtags (#tag)
+    4. Normalizes numbers (remove, replace with <NUM>, or keep)
+    5. Reduces repeated characters (sooooo → soo)
+    6. Tokenizes using NLTK (handles contractions like "don't" → ["do", "n't"])
+    7. Cleans each token individually (removes non-alphanumeric except accents)
+    8. Converts to lowercase
+    9. Filters out empty tokens
+    10. Removes stopwords (optional, enabled by default)
+    11. Lemmatizes with POS tagging (optional, enabled by default)
     
     Args:
         text: Input text to clean
         return_tokens: If True, returns list of tokens; if False, returns joined string
         remove_stopwords: If True, filters out English stopwords (default: True)
         lemmatize: If True, applies lemmatization with POS tagging (default: True)
+        normalize_numbers: How to handle numbers (default: 'remove')
+            - 'remove': Delete all numbers
+            - 'token': Replace with <NUM> token
+            - 'keep': Keep numbers as-is
     
     Returns:
         Cleaned text as string (or list of tokens if return_tokens=True)
     
     Examples:
-        >>> clean_text("The movies were amazing!")
-        "movie amazing"  # 'movies' → 'movie', stopwords removed
+        >>> clean_text("Check out http://example.com for more info!")
+        "check info"  # URL removed
         
-        >>> clean_text("I loved the acting", return_tokens=True)
-        ['love', 'act']  # 'loved' → 'love', 'acting' → 'act'
+        >>> clean_text("Email me at user@example.com")
+        "email"  # Email removed
         
-        >>> clean_text("better films", lemmatize=True)
-        "good film"  # 'better' → 'good' (with POS tagging)
+        >>> clean_text("@john said #awesome movie!")
+        "say awesome movie"  # Mention removed, hashtag preserved
         
-        >>> clean_text("running quickly", lemmatize=False)
-        "running quickly"  # lemmatization disabled
+        >>> clean_text("Sooooo good! Rated 10/10", normalize_numbers='token')
+        "soo good rate <NUM>"  # Repeated chars normalized, numbers → <NUM>
+        
+        >>> clean_text("I loved the acting in 2024", normalize_numbers='keep')
+        "love act 2024"  # Numbers preserved
     
     Note:
+        - URLs and emails are removed (unique, non-generalizable)
+        - Mentions (@user) removed, hashtags preserved (content signal)
+        - Numbers: default 'remove' (reduces vocab size, but loses year/rating info)
+        - Character repetition normalized to max 2 (sooooo → soo)
         - Stopwords use set() for O(1) lookup performance
-        - Lemmatization uses POS tagging for accurate results:
-          * Without POS: "better" stays "better" (assumes noun)
-          * With POS: "better" → "good" (correctly identified as adjective)
-        - POS tagging adds ~20-30% processing time but significantly improves quality
+        - Lemmatization uses POS tagging for accurate results
     """
     if not isinstance(text, str):
         text = str(text)
@@ -143,7 +156,32 @@ def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = 
     # Step 1: Remove HTML tags
     text = re.sub(r"<.*?>", " ", text)
     
-    # Step 2: Tokenize with NLTK (handles contractions, punctuation, etc.)
+    # Step 2: Remove URLs (http, https, www)
+    text = re.sub(r'http\S+|https\S+|www\.\S+', ' ', text)
+    
+    # Step 3: Remove email addresses
+    text = re.sub(r'\S+@\S+', ' ', text)
+    
+    # Step 4: Remove mentions (@user)
+    text = re.sub(r'@\w+', ' ', text)
+    
+    # Step 5: Process hashtags - keep the text content, remove the #
+    text = re.sub(r'#(\w+)', r'\1', text)
+    
+    # Step 6: Normalize numbers based on strategy
+    if normalize_numbers == 'remove':
+        # Remove all numbers completely
+        text = re.sub(r'\d+', ' ', text)
+    elif normalize_numbers == 'token':
+        # Replace numbers with special <NUM> token
+        text = re.sub(r'\d+', ' <NUM> ', text)
+    # else: 'keep' - do nothing, preserve numbers
+    
+    # Step 7: Reduce repeated characters (3+ → 2)
+    # "sooooo" → "soo", "hellooooo" → "helloo"
+    text = re.sub(r'(.)\1{2,}', r'\1\1', text)
+    
+    # Step 8: Tokenize with NLTK (handles contractions, punctuation, etc.)
     try:
         tokens = word_tokenize(text)
     except Exception as e:
@@ -151,21 +189,24 @@ def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = 
         print(f"⚠️  Tokenization failed: {e}. Using simple split.")
         tokens = text.split()
     
-    # Step 3: Clean each token individually
+    # Step 9: Clean each token individually
     cleaned_tokens = []
     for token in tokens:
-        # Keep alphanumeric + accented characters
+        # Keep alphanumeric + accented characters + <NUM> token
         # This preserves contractions like "n't" but removes standalone punctuation
-        cleaned = re.sub(r"[^\w\sáéíóúÁÉÍÓÚñÑüÜ']", "", token)
-        cleaned = cleaned.strip()
-        if cleaned:  # Only keep non-empty tokens
-            cleaned_tokens.append(cleaned.lower())
+        if token == '<NUM>':
+            cleaned_tokens.append(token)
+        else:
+            cleaned = re.sub(r"[^\w\sáéíóúÁÉÍÓÚñÑüÜ']", "", token)
+            cleaned = cleaned.strip()
+            if cleaned:  # Only keep non-empty tokens
+                cleaned_tokens.append(cleaned.lower())
     
-    # Step 4: Remove stopwords (using set for O(1) lookup)
+    # Step 10: Remove stopwords (using set for O(1) lookup)
     if remove_stopwords:
         cleaned_tokens = [token for token in cleaned_tokens if token not in STOP_WORDS]
     
-    # Step 5: Lemmatization with POS tagging
+    # Step 11: Lemmatization with POS tagging
     if lemmatize and cleaned_tokens:
         try:
             # Get POS tags for remaining tokens (after stopword removal)
@@ -174,6 +215,11 @@ def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = 
             # Lemmatize each token with its corresponding POS tag
             lemmatized_tokens = []
             for word, pos in pos_tagged:
+                # Skip special tokens like <NUM>
+                if word.startswith('<') and word.endswith('>'):
+                    lemmatized_tokens.append(word)
+                    continue
+                
                 # Map Penn Treebank POS tag to WordNet POS tag
                 wordnet_pos = get_wordnet_pos(pos)
                 # Apply lemmatization with POS context
@@ -185,7 +231,7 @@ def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = 
             # If lemmatization fails, continue with non-lemmatized tokens
             print(f"⚠️  Lemmatization failed: {e}. Skipping lemmatization.")
     
-    # Step 6: Return as list or joined string
+    # Step 12: Return as list or joined string
     if return_tokens:
         return cleaned_tokens
     else:
