@@ -9,9 +9,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import MiniBatchKMeans
 
-# NLTK tokenization
+# NLTK tokenization and stopwords
 import nltk
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 
 # Ensure NLTK punkt tokenizer is available
 try:
@@ -21,9 +22,20 @@ except LookupError:
     nltk.download('punkt_tab', quiet=True)
     print("✓ Recursos NLTK descargados")
 
+# Ensure NLTK stopwords are available
+try:
+    stopwords.words('english')
+except LookupError:
+    print("Descargando recursos NLTK (stopwords)...")
+    nltk.download('stopwords', quiet=True)
+    print("✓ Stopwords descargados")
 
-def clean_text(text: str, return_tokens: bool = False) -> str:
-    """Clean and tokenize text using NLTK word_tokenize.
+# Load English stopwords as a set for O(1) lookup performance
+STOP_WORDS = set(stopwords.words('english'))
+
+
+def clean_text(text: str, return_tokens: bool = False, remove_stopwords: bool = True) -> str:
+    """Clean and tokenize text using NLTK word_tokenize with stopword removal.
     
     This function:
     1. Removes HTML tags
@@ -31,20 +43,29 @@ def clean_text(text: str, return_tokens: bool = False) -> str:
     3. Cleans each token individually (removes non-alphanumeric except accents)
     4. Converts to lowercase
     5. Filters out empty tokens
+    6. Removes stopwords (optional, enabled by default)
     
     Args:
         text: Input text to clean
         return_tokens: If True, returns list of tokens; if False, returns joined string
+        remove_stopwords: If True, filters out English stopwords (default: True)
     
     Returns:
         Cleaned text as string (or list of tokens if return_tokens=True)
     
     Examples:
         >>> clean_text("I don't like this movie!")
-        "i do n't like this movie"
+        "like movie"  # 'i', 'do', 'n't', 'this' are stopwords
         
         >>> clean_text("It's great!", return_tokens=True)
-        ['it', "'s", 'great']
+        ['great']  # 'it', "'s" are stopwords
+        
+        >>> clean_text("The best movie I've seen", remove_stopwords=False)
+        "the best movie i 've seen"  # stopwords preserved
+    
+    Note:
+        Stopwords are stored as a set (STOP_WORDS) for O(1) lookup performance.
+        With 179 English stopwords, this is significantly faster than list lookup O(n).
     """
     if not isinstance(text, str):
         text = str(text)
@@ -70,7 +91,11 @@ def clean_text(text: str, return_tokens: bool = False) -> str:
         if cleaned:  # Only keep non-empty tokens
             cleaned_tokens.append(cleaned.lower())
     
-    # Step 4: Return as list or joined string
+    # Step 4: Remove stopwords (using set for O(1) lookup)
+    if remove_stopwords:
+        cleaned_tokens = [token for token in cleaned_tokens if token not in STOP_WORDS]
+    
+    # Step 5: Return as list or joined string
     if return_tokens:
         return cleaned_tokens
     else:
