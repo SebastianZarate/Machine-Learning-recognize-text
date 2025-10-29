@@ -14,12 +14,13 @@ Notes:
   varied to produce many examples while keeping them coherent.
 """
 
-from typing import Optional
+from typing import Optional, Tuple
 import random
 import csv
 import os
 
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 
 def _read_imdb_reviews(imdb_path: str, positive_count: int, random_state: Optional[int] = None) -> pd.Series:
@@ -161,6 +162,36 @@ def create_balanced_dataset(imdb_path: str = 'IMDB Dataset.csv', output_path: st
 
 	# Save
 	combined.to_csv(output_path, index=False, quoting=csv.QUOTE_MINIMAL)
+
+
+def split_dataset(X, y, test_size: float = 0.2, random_state: int = 42, stratify: bool = True) -> Tuple:
+	"""Split dataset into training and test sets with stratification.
+	
+	Args:
+		X: Feature data (texts or feature matrix)
+		y: Labels (0 or 1)
+		test_size: Proportion of dataset to include in test split (default 0.2 = 20%)
+		random_state: Random seed for reproducibility (default 42)
+		stratify: Whether to maintain class proportions in both sets (default True)
+	
+	Returns:
+		Tuple of (X_train, X_test, y_train, y_test)
+	
+	Notes:
+		- The test set should NEVER be used during training or hyperparameter tuning
+		- stratify=True ensures both train and test have the same proportion of classes
+		- random_state=42 guarantees reproducible splits across runs
+	"""
+	stratify_param = y if stratify else None
+	
+	X_train, X_test, y_train, y_test = train_test_split(
+		X, y, 
+		test_size=test_size, 
+		random_state=random_state, 
+		stratify=stratify_param
+	)
+	
+	return X_train, X_test, y_train, y_test
 
 
 if __name__ == '__main__':
