@@ -9,15 +9,72 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import MiniBatchKMeans
 
+# NLTK tokenization
+import nltk
+from nltk.tokenize import word_tokenize
 
-def clean_text(text: str) -> str:
+# Ensure NLTK punkt tokenizer is available
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    print("Descargando recursos NLTK (punkt_tab)...")
+    nltk.download('punkt_tab', quiet=True)
+    print("✓ Recursos NLTK descargados")
+
+
+def clean_text(text: str, return_tokens: bool = False) -> str:
+    """Clean and tokenize text using NLTK word_tokenize.
+    
+    This function:
+    1. Removes HTML tags
+    2. Tokenizes using NLTK (handles contractions like "don't" → ["do", "n't"])
+    3. Cleans each token individually (removes non-alphanumeric except accents)
+    4. Converts to lowercase
+    5. Filters out empty tokens
+    
+    Args:
+        text: Input text to clean
+        return_tokens: If True, returns list of tokens; if False, returns joined string
+    
+    Returns:
+        Cleaned text as string (or list of tokens if return_tokens=True)
+    
+    Examples:
+        >>> clean_text("I don't like this movie!")
+        "i do n't like this movie"
+        
+        >>> clean_text("It's great!", return_tokens=True)
+        ['it', "'s", 'great']
+    """
     if not isinstance(text, str):
         text = str(text)
-    # quitar tags HTML básicos
+    
+    # Step 1: Remove HTML tags
     text = re.sub(r"<.*?>", " ", text)
-    # mantener palabras y espacios
-    text = re.sub(r"[^\w\sáéíóúÁÉÍÓÚñÑüÜ]", " ", text)
-    return text.lower().strip()
+    
+    # Step 2: Tokenize with NLTK (handles contractions, punctuation, etc.)
+    try:
+        tokens = word_tokenize(text)
+    except Exception as e:
+        # Fallback to simple split if tokenization fails
+        print(f"⚠️  Tokenization failed: {e}. Using simple split.")
+        tokens = text.split()
+    
+    # Step 3: Clean each token individually
+    cleaned_tokens = []
+    for token in tokens:
+        # Keep alphanumeric + accented characters
+        # This preserves contractions like "n't" but removes standalone punctuation
+        cleaned = re.sub(r"[^\w\sáéíóúÁÉÍÓÚñÑüÜ']", "", token)
+        cleaned = cleaned.strip()
+        if cleaned:  # Only keep non-empty tokens
+            cleaned_tokens.append(cleaned.lower())
+    
+    # Step 4: Return as list or joined string
+    if return_tokens:
+        return cleaned_tokens
+    else:
+        return " ".join(cleaned_tokens)
 
 
 DEFAULT_KEYWORDS = [
