@@ -4,15 +4,23 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 import joblib
+import logging
+from logging.config import dictConfig
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
-import model
+# Importar configuración
+from config import (
+    GUI_CONFIG, MODEL_FILES, SENTIMENT_LABELS, 
+    get_model_path, model_exists, LOGGING_CONFIG
+)
+from preprocessing import preprocess_pipeline
 
-
-MODEL_PATH = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
+# Configurar logging
+dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(__name__)
 
 # Paleta de colores moderna
 COLORS = {
@@ -30,8 +38,14 @@ COLORS = {
 
 
 def train_action(root, status_label, train_btn):
+    """
+    Entrena los modelos de clasificación desde la GUI.
+    
+    Utiliza el pipeline moderno de train_models.py para entrenar
+    Naive Bayes, Logistic Regression y Random Forest.
+    """
     path = filedialog.askopenfilename(
-        title="Seleccionar archivo CSV con reseñas", 
+        title="Seleccionar archivo CSV con reseñas IMDB", 
         filetypes=[("CSV files", "*.csv"), ("All files", "*")]
     )
     if not path:
@@ -41,170 +55,244 @@ def train_action(root, status_label, train_btn):
         try:
             train_btn.config(state='disabled', text="Entrenando...")
             status_label.config(
-                text="⏳ Entrenando modelo... Esto puede tardar unos segundos", 
+                text="⏳ Entrenando modelos... Esto puede tardar varios minutos", 
                 fg=COLORS['warning']
             )
             root.update()
             
-            model_path = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
-            model.train_from_csv(path, model_path=model_path)
+            logger.info(f"Iniciando entrenamiento desde: {path}")
+            
+            # Importar módulo de entrenamiento
+            from train_models import train_all_models_from_file
+            
+            # Entrenar todos los modelos
+            results = train_all_models_from_file(path)
+            
+            logger.info("Entrenamiento completado exitosamente")
             
             status_label.config(
-                text=f"✓ Modelo entrenado y listo para usar", 
+                text=f"✓ Modelos entrenados y guardados correctamente", 
                 fg=COLORS['success']
             )
-            messagebox.showinfo(
-                "Entrenamiento Completo", 
-                f"El modelo ha sido entrenado y guardado exitosamente en:\n{model_path}\n\nYa puede clasificar textos."
+            
+            # Crear mensaje con resultados
+            msg = "✅ Entrenamiento completado exitosamente\n\n"
+            msg += "Modelos guardados en la carpeta 'models/':\n\n"
+            for model_name in ['naive_bayes', 'logistic_regression', 'random_forest']:
+                msg += f"  • {model_name.replace('_', ' ').title()}\n"
+            msg += f"  • Vectorizador TF-IDF\n\n"
+            msg += "Ya puede clasificar textos usando cualquiera de los modelos."
+            
+            messagebox.showinfo("Entrenamiento Completo", msg)
+            
+        except ImportError as e:
+            logger.error(f"Error importando módulos: {e}")
+            messagebox.showerror(
+                "Error de importación", 
+                f"No se pudo importar el módulo de entrenamiento:\n{str(e)}\n\n"
+                "Verifique que train_models.py existe en la carpeta src/"
             )
+            status_label.config(text="✗ Error en entrenamiento", fg=COLORS['danger'])
         except Exception as e:
-            messagebox.showerror("Error al entrenar", f"Ocurrió un error durante el entrenamiento:\n{str(e)}")
+            logger.exception(f"Error durante entrenamiento: {e}")
+            import traceback
+            messagebox.showerror(
+                "Error al entrenar", 
+                f"Ocurrió un error durante el entrenamiento:\n{str(e)}\n\n"
+                "Ver consola para más detalles."
+            )
+            traceback.print_exc()
             status_label.config(text="✗ Error en entrenamiento", fg=COLORS['danger'])
         finally:
-            train_btn.config(state='normal', text="Entrenar Modelo")
+            train_btn.config(state='normal', text="Entrenar Modelos")
 
     threading.Thread(target=_train, daemon=True).start()
 
 
 def classify_action(text_widget, result_box, classify_btn, model_selector=None):
+    """
+    Clasifica el texto usando modelos supervisados (Naive Bayes, Logistic Regression, Random Forest).
+    
+    Esta función reemplaza completamente el sistema legacy basado en similitud coseno.
+    Ahora usa modelos de ML supervisados entrenados correctamente.
+    """
     text = text_widget.get("1.0", tk.END).strip()
     if not text:
         messagebox.showwarning("Texto vacío", "Por favor, escriba o cargue un texto para clasificar")
         return
     
     classify_btn.config(state='disabled', text="Clasificando...")
+    logger.info("Iniciando clasificación de texto...")
     
     def _classify():
         try:
             # Determinar qué modelo usar
-            if model_selector and model_selector.get():
-                selected_model = model_selector.get()
-                model_files = {
-                    'Naive Bayes': 'naive_bayes.joblib',
-                    'Logistic Regression': 'logistic_regression.joblib',
-                    'Random Forest': 'random_forest.joblib'
-                }
-                model_name = model_files.get(selected_model, 'logistic_regression.joblib')
-                model_path = os.path.join(os.path.dirname(script_dir), "models", model_name)
-                
-                # Intentar usar modelo nuevo
-                if os.path.exists(model_path):
-                    vectorizer_path = os.path.join(os.path.dirname(script_dir), "models", "vectorizer.joblib")
-                    if os.path.exists(vectorizer_path):
-                        # Cargar modelo y vectorizador modernos
-                        loaded_model = joblib.load(model_path)
-                        vectorizer = joblib.load(vectorizer_path)
-                        
-                        # Preprocesar y clasificar
-                        from preprocessing import preprocess_pipeline
-                        text_clean = preprocess_pipeline(text)
-                        text_vec = vectorizer.transform([text_clean])
-                        prediction = loaded_model.predict(text_vec)[0]
-                        
-                        # Obtener probabilidades
-                        if hasattr(loaded_model, 'predict_proba'):
-                            proba = loaded_model.predict_proba(text_vec)[0]
-                        else:
-                            proba = [0.5, 0.5]  # Fallback
-                        
-                        res = {
-                            'label': 'Positive' if prediction == 1 else 'Negative',
-                            'confidence': max(proba),
-                            'proba_neg': proba[0],
-                            'proba_pos': proba[1],
-                            'model_used': selected_model
-                        }
-                    else:
-                        # Fallback a modelo legacy
-                        model_path = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
-                        res = model.predict_text(text, model_path=model_path)
-                        res['model_used'] = 'Legacy (Cosine Similarity)'
-                else:
-                    # Fallback a modelo legacy
-                    model_path = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
-                    res = model.predict_text(text, model_path=model_path)
-                    res['model_used'] = 'Legacy (Cosine Similarity)'
-            else:
-                # Sin selector, usar modelo legacy
-                model_path = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
-                res = model.predict_text(text, model_path=model_path)
-                res['model_used'] = 'Legacy'
+            model_name_map = {
+                'Naive Bayes': 'naive_bayes',
+                'Logistic Regression': 'logistic_regression',
+                'Random Forest': 'random_forest'
+            }
             
+            if model_selector and model_selector.get():
+                selected_display_name = model_selector.get()
+                model_key = model_name_map.get(selected_display_name, 'logistic_regression')
+            else:
+                model_key = 'logistic_regression'  # Default
+            
+            logger.info(f"Modelo seleccionado: {model_key}")
+            
+            # Verificar que el modelo existe
+            model_path = get_model_path(model_key)
+            vectorizer_path = MODEL_FILES['vectorizer']
+            
+            if not model_path.exists():
+                raise FileNotFoundError(
+                    f"El modelo '{model_key}' no está entrenado.\n\n"
+                    "Por favor, ejecute los notebooks (03_model_training.ipynb) "
+                    "o use train_models.py para entrenar los modelos primero."
+                )
+            
+            if not vectorizer_path.exists():
+                raise FileNotFoundError(
+                    "El vectorizador TF-IDF no existe.\n\n"
+                    "Por favor, entrene los modelos usando los notebooks."
+                )
+            
+            # Cargar modelo y vectorizador
+            logger.info(f"Cargando modelo desde: {model_path}")
+            loaded_model = joblib.load(model_path)
+            vectorizer = joblib.load(vectorizer_path)
+            
+            # Preprocesar texto
+            logger.info("Preprocesando texto...")
+            text_clean = preprocess_pipeline(text)
+            logger.debug(f"Texto preprocesado: {text_clean[:100]}...")
+            
+            # Vectorizar
+            text_vec = vectorizer.transform([text_clean])
+            
+            # Predecir
+            prediction = loaded_model.predict(text_vec)[0]
+            
+            # Obtener probabilidades
+            if hasattr(loaded_model, 'predict_proba'):
+                proba = loaded_model.predict_proba(text_vec)[0]
+                confidence = max(proba)
+                proba_neg = proba[0]
+                proba_pos = proba[1]
+            else:
+                # Para modelos sin predict_proba (ej: algunos SVM)
+                confidence = 0.5
+                proba_neg = 0.5
+                proba_pos = 0.5
+            
+            sentiment = SENTIMENT_LABELS[prediction]
+            logger.info(f"Predicción: {sentiment.upper()} (confianza: {confidence:.2%})")
+            
+            # Mostrar resultado en la GUI
             result_box.configure(state="normal")
             result_box.delete("1.0", tk.END)
             
-            # Configurar tags con mejor formato y espaciado
-            result_box.tag_configure("header", font=("Segoe UI", 13, "bold"), foreground=COLORS['primary'], spacing1=10, spacing3=10)
-            result_box.tag_configure("section_title", font=("Segoe UI", 11, "bold"), foreground=COLORS['dark'], spacing1=15, spacing3=8)
-            result_box.tag_configure("positive", font=("Segoe UI", 11, "bold"), foreground=COLORS['success'])
-            result_box.tag_configure("negative", font=("Segoe UI", 11, "bold"), foreground=COLORS['danger'])
-            result_box.tag_configure("metric_label", font=("Segoe UI", 10), foreground=COLORS['dark'], spacing1=8)
-            result_box.tag_configure("metric_value", font=("Segoe UI", 10, "bold"), foreground=COLORS['secondary'])
-            result_box.tag_configure("keywords", font=("Segoe UI", 9), foreground=COLORS['secondary'], spacing1=5, lmargin1=30)
-            result_box.tag_configure("separator", font=("Segoe UI", 8), foreground=COLORS['light'], spacing1=5, spacing3=5)
-            result_box.tag_configure("box", background="#f8f9fa", relief="solid", borderwidth=1, spacing1=10, spacing3=10, lmargin1=15, lmargin2=15, rmargin=15)
+            # Configurar tags de formato
+            result_box.tag_configure("header", font=("Segoe UI", 14, "bold"), 
+                                    foreground=COLORS['primary'], spacing1=10, spacing3=10)
+            result_box.tag_configure("positive", font=("Segoe UI", 12, "bold"), 
+                                    foreground=COLORS['success'])
+            result_box.tag_configure("negative", font=("Segoe UI", 12, "bold"), 
+                                    foreground=COLORS['danger'])
+            result_box.tag_configure("metric_label", font=("Segoe UI", 10), 
+                                    foreground=COLORS['dark'], spacing1=8)
+            result_box.tag_configure("metric_value", font=("Segoe UI", 10, "bold"), 
+                                    foreground=COLORS['secondary'])
+            result_box.tag_configure("separator", font=("Segoe UI", 8), 
+                                    foreground=COLORS['light'], spacing1=5, spacing3=5)
             
             # ==== ENCABEZADO ====
             result_box.insert(tk.END, "\n")
-            result_box.insert(tk.END, " " * 18 + "RESULTADO DE CLASIFICACIÓN\n", "header")
+            result_box.insert(tk.END, " " * 15 + "🎬 ANÁLISIS DE SENTIMIENTO 🎬\n", "header")
             result_box.insert(tk.END, "\n")
+            result_box.insert(tk.END, "─" * 70 + "\n", "separator")
             
             # ==== RESULTADO PRINCIPAL ====
-            decision = "ES UNA RESEÑA DE CINE ✓" if res["is_review"] else "NO ES UNA RESEÑA DE CINE ✗"
-            result_tag = "positive" if res["is_review"] else "negative"
-            icon = "🎬" if res["is_review"] else "📄"
+            result_box.insert(tk.END, "\n")
+            sentiment_tag = "positive" if prediction == 1 else "negative"
+            sentiment_icon = "😊" if prediction == 1 else "�"
+            sentiment_text = f"{sentiment_icon}  SENTIMIENTO: {sentiment.upper()}"
+            result_box.insert(tk.END, sentiment_text + "\n", sentiment_tag)
+            result_box.insert(tk.END, "\n")
             
-            result_box.insert(tk.END, f"{icon}  {decision}\n", result_tag)
+            # ==== MÉTRICAS ====
+            result_box.insert(tk.END, "📊  MÉTRICAS DE CONFIANZA\n", "metric_label")
+            result_box.insert(tk.END, "\n")
+            
+            # Confianza general
+            result_box.insert(tk.END, "    Confianza del Modelo: ", "metric_label")
+            result_box.insert(tk.END, f"{confidence:.1%}\n", "metric_value")
+            
+            # Probabilidades individuales
+            result_box.insert(tk.END, "\n    Probabilidad Positiva: ", "metric_label")
+            result_box.insert(tk.END, f"{proba_pos:.1%}\n", "positive")
+            
+            result_box.insert(tk.END, "    Probabilidad Negativa: ", "metric_label")
+            result_box.insert(tk.END, f"{proba_neg:.1%}\n", "negative")
+            
+            # Modelo usado
+            result_box.insert(tk.END, "\n    Modelo Utilizado: ", "metric_label")
+            result_box.insert(tk.END, f"{model_key.replace('_', ' ').title()}\n", "metric_value")
+            
             result_box.insert(tk.END, "\n")
             result_box.insert(tk.END, "─" * 70 + "\n", "separator")
             
-            # ==== MÉTRICAS DE ANÁLISIS ====
+            # ==== INTERPRETACIÓN ====
             result_box.insert(tk.END, "\n")
-            result_box.insert(tk.END, "  MÉTRICAS DE ANÁLISIS\n", "section_title")
-            result_box.insert(tk.END, "\n")
-            
-            # Probabilidad combinada
-            prob_color = "positive" if res['probability'] > 0.5 else "negative"
-            result_box.insert(tk.END, "    🎯  Probabilidad Combinada:\n", "metric_label")
-            result_box.insert(tk.END, f"         {res['probability']:.1%}\n", prob_color)
-            
-            # Similitud con corpus
-            result_box.insert(tk.END, "\n    📊  Similitud con Corpus de Reseñas:\n", "metric_label")
-            result_box.insert(tk.END, f"         {res['similarity']:.1%}\n", "metric_value")
-            
-            # Puntaje por palabras clave
-            result_box.insert(tk.END, "\n    🔑  Puntaje por Palabras Clave:\n", "metric_label")
-            result_box.insert(tk.END, f"         {res['keyword_score']:.1%}\n", "metric_value")
-            
-            result_box.insert(tk.END, "\n")
-            result_box.insert(tk.END, "─" * 70 + "\n", "separator")
-            
-            # ==== PALABRAS CLAVE DETECTADAS ====
-            result_box.insert(tk.END, "\n")
-            result_box.insert(tk.END, "  PALABRAS CLAVE DETECTADAS\n", "section_title")
+            result_box.insert(tk.END, "💡  INTERPRETACIÓN\n", "metric_label")
             result_box.insert(tk.END, "\n")
             
-            if res["matched_keywords"]:
-                result_box.insert(tk.END, "    🔍  Términos encontrados:\n\n", "metric_label")
-                # Mostrar palabras clave de forma organizada
-                keywords_formatted = "         • " + "\n         • ".join(res["matched_keywords"])
-                result_box.insert(tk.END, keywords_formatted + "\n", "keywords")
+            if confidence > 0.8:
+                interpretation = "    El modelo está muy seguro de su predicción."
+            elif confidence > 0.6:
+                interpretation = "    El modelo tiene confianza moderada en su predicción."
             else:
-                result_box.insert(tk.END, "    ⚠️  No se detectaron palabras clave específicas de reseñas\n", "metric_label")
+                interpretation = "    El modelo tiene baja confianza. El texto puede ser ambiguo."
             
-            result_box.insert(tk.END, "\n")
-            result_box.insert(tk.END, "─" * 70 + "\n", "separator")
+            result_box.insert(tk.END, interpretation + "\n", "metric_label")
             result_box.insert(tk.END, "\n")
             
             result_box.configure(state="disabled")
             
-        except FileNotFoundError:
-            messagebox.showwarning(
-                "Modelo no encontrado", 
-                "Debe entrenar el modelo primero.\n\nUse el botón 'Entrenar Modelo' y seleccione un archivo CSV con reseñas."
+            logger.info("Clasificación completada exitosamente")
+            
+        except FileNotFoundError as e:
+            logger.error(f"Modelo no encontrado: {e}")
+            messagebox.showerror(
+                "Modelo no encontrado",
+                str(e)
+            )
+        except joblib.JoblibException as e:
+            logger.error(f"Error cargando modelo corrupto: {e}")
+            messagebox.showerror(
+                "Modelo corrupto",
+                f"El archivo del modelo está dañado o es incompatible:\n{str(e)}\n\n"
+                "Por favor, re-entrene el modelo ejecutando los notebooks."
+            )
+        except KeyError as e:
+            logger.error(f"Modelo incompatible: {e}")
+            messagebox.showerror(
+                "Modelo incompatible",
+                f"El modelo no contiene los componentes esperados:\n{str(e)}\n\n"
+                "Use modelos entrenados con train_models.py o los notebooks."
             )
         except Exception as e:
-            messagebox.showerror("Error", f"Error al clasificar el texto:\n{str(e)}")
+            logger.exception(f"Error inesperado al clasificar: {e}")
+            import traceback
+            messagebox.showerror(
+                "Error inesperado",
+                f"Error al clasificar:\n{str(e)}\n\nVer consola para detalles."
+            )
+            print("=" * 70)
+            print("TRACEBACK COMPLETO:")
+            traceback.print_exc()
+            print("=" * 70)
         finally:
             classify_btn.config(state='normal', text="🔍 Clasificar Texto")
     

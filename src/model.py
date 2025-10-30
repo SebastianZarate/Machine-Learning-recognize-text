@@ -655,7 +655,18 @@ def train_from_csv(csv_path: str,
         - El archivo guardado contiene: vectorizer, models, X_test, y_test, keywords
     """
     # Import train_models here to avoid circular imports
-    from train_models import train_all_models
+    # Manejo robusto de imports: funciona desde cualquier ubicación
+    import sys
+    import os
+    if __name__ == '__main__':
+        # Si se ejecuta como script, añadir el directorio src al path
+        sys.path.insert(0, os.path.dirname(__file__))
+    
+    try:
+        from train_models import train_all_models
+    except ImportError:
+        # Fallback a import absoluto si el relativo falla
+        from src.train_models import train_all_models
     
     print("\n" + "="*70)
     print("🚀 INICIO DEL PROCESO DE ENTRENAMIENTO - CLASIFICADORES SUPERVISADOS")

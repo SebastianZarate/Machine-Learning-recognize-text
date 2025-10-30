@@ -10,6 +10,7 @@ Author: Machine Learning Workshop
 Date: 2025-10-29
 """
 
+import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -25,6 +26,9 @@ from sklearn.metrics import (
     roc_curve,
     roc_auc_score
 )
+
+# Configurar logging
+logger = logging.getLogger(__name__)
 
 
 def evaluate_model(model: Any,
@@ -304,10 +308,10 @@ def print_detailed_metrics(metrics: Dict[str, Any]) -> None:
     
     # Interpretación
     print(f"\n💡 Interpretación:")
-    print(f"   True Negatives (TN):  {tn:,} - Correctamente identificados como NO reseña")
-    print(f"   True Positives (TP):  {tp:,} - Correctamente identificados como reseña")
-    print(f"   False Positives (FP): {fp:,} - Incorrectamente identificados como reseña")
-    print(f"   False Negatives (FN): {fn:,} - Incorrectamente identificados como NO reseña")
+    print(f"   True Negatives (TN):  {tn:,} - Correctamente identificados como Negative (sentimiento negativo)")
+    print(f"   True Positives (TP):  {tp:,} - Correctamente identificados como Positive (sentimiento positivo)")
+    print(f"   False Positives (FP): {fp:,} - Incorrectamente identificados como Positive")
+    print(f"   False Negatives (FN): {fn:,} - Incorrectamente identificados como Negative")
     
     # Classification Report
     print(f"\n📋 Classification Report:")

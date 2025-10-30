@@ -109,7 +109,10 @@ cd Machine-Learning-recognize-text
 # 2. Instalar dependencias
 pip install -r requirements.txt
 
-# 3. Ejecutar la aplicación
+# 3. Descargar recursos de NLTK
+python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet'); nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger_eng')"
+
+# 4. Ejecutar la aplicación
 python main.py
 ```
 
@@ -517,86 +520,6 @@ predictable ending. I want my money back."
 ### Opcional
 
 - **Tkinter**: Interfaz gráfica (GUI) para uso interactivo
-
----
-
-## 🚀 Mejoras Futuras
-
-### 📈 Mejoras de Preprocesamiento
-
-- Manejo de **emojis y emoticons** (😊 → positive, 😢 → negative)
-- Detección de **negaciones** ("not good" vs "good")
-- **Stemming** vs Lemmatization (comparar Porter Stemmer)
-- Corrección ortográfica automática
-
-### 🧠 Mejoras de Modelos
-
-- **SVM** (Support Vector Machines con kernel RBF)
-- **XGBoost / LightGBM** (Gradient Boosting extremadamente rápido)
-- **Redes Neuronales**:
-  - LSTM / GRU (memoria temporal para secuencias)
-  - **BERT / Transformers** (state-of-the-art en NLP)
-  - Word2Vec / GloVe embeddings (representaciones densas)
-
-### 🔧 Optimización
-
-- **Grid Search / Random Search** para hiperparámetros
-- **Cross-validation** (K-Fold) para validación robusta
-- **Ensemble methods** (Stacking, Voting)
-- **Feature selection** para reducir dimensionalidad
-
-### 🌐 Despliegue en Producción
-
-- **API REST** con FastAPI o Flask
-- **Contenedor Docker** para portabilidad
-- **CI/CD** con GitHub Actions
-- **Monitoreo** de performance en producción
-- Re-entrenamiento periódico con nuevos datos
-
----
-
-## 📚 Referencias y Recursos
-
-### Papers Académicos
-
-- ["Attention Is All You Need"](https://arxiv.org/abs/1706.03762) (Transformers, 2017)
-- ["BERT: Pre-training of Deep Bidirectional Transformers"](https://arxiv.org/abs/1810.04805) (2018)
-
-### Libros Recomendados
-
-- **"Speech and Language Processing"** - Jurafsky & Martin
-- **"Hands-On Machine Learning"** - Aurélien Géron
-- **"Natural Language Processing with Python"** - NLTK Book
-
-### Cursos Online
-
-- Coursera: Natural Language Processing Specialization
-- Fast.ai: Practical Deep Learning for Coders
-- Stanford CS224N: NLP with Deep Learning
-
-### Bibliotecas Avanzadas
-
-- **spaCy**: NLP industrial (más rápido que NLTK)
-- **Transformers** (Hugging Face): BERT, GPT, RoBERTa pre-entrenados
-- **Gensim**: Topic modeling y word embeddings
-
----
-
-## 👥 Contribuciones
-
-¿Quieres mejorar este proyecto? ¡Las contribuciones son bienvenidas!
-
-1. Fork el repositorio
-2. Crea una rama (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit tus cambios (`git commit -am 'Añadir nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Abre un Pull Request
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detalles.
 
 ---
 
