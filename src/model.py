@@ -1,3 +1,23 @@
+"""
+Este archivo contiene el pipeline legacy basado en similitud coseno.
+
+Para usar los modelos de clasificación supervisada modernos (Naive Bayes, Logistic Regression, Random Forest),
+consulte los siguientes módulos:
+    - src/preprocessing.py: Preprocesamiento de texto
+    - src/train_models.py: Entrenamiento de modelos supervisados
+    - src/evaluation.py: Evaluación y métricas
+    - src/visualizations.py: Gráficos y visualizaciones
+
+O ejecute los notebooks interactivos en notebooks/:
+    - 01_data_exploration.ipynb
+    - 02_preprocessing.ipynb
+    - 03_model_training.ipynb
+    - 04_evaluation.ipynb
+    - 05_complete_workflow.ipynb (PRODUCTO FINAL)
+
+Este archivo se mantiene únicamente para compatibilidad con la GUI (src/app.py).
+"""
+
 import os
 import re
 import time

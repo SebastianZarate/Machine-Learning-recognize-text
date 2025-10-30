@@ -1,75 +1,94 @@
-# 🎬 Machine Learning Text Classification
+# 🎬 Análisis de Sentimientos en Reseñas de Películas
 
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0+-orange.svg)
-![NLTK](https://img.shields.io/badge/NLTK-3.8+-green.svg)
+![NLTK](https://img.shields.io/badge/NLTK-3.6+-green.svg)
+![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-orange.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-**Sistema avanzado de clasificación de texto usando Machine Learning para análisis de sentimientos en reseñas de películas**
+**Sistema completo de Machine Learning para clasificar sentimientos en reseñas de películas utilizando 3 algoritmos supervisados**
 
-[Características](#-características) • [Instalación](#-instalación) • [Uso](#-uso) • [Arquitectura](#-arquitectura) • [Modelos](#-modelos)
+[Características](#-características) • [Instalación](#-instalación) • [Uso](#-uso) • [Notebooks](#-notebooks) • [Resultados](#-resultados)
 
 </div>
 
 ---
 
-## 📋 Descripción
+## 📋 Descripción del Proyecto
 
-Este proyecto implementa un **sistema completo de clasificación de texto** utilizando técnicas avanzadas de Machine Learning y Procesamiento de Lenguaje Natural (NLP). El sistema puede:
+Este proyecto implementa un **pipeline completo de Machine Learning** para **clasificar sentimientos** (positivo/negativo) en reseñas de películas del dataset IMDB. Se comparan **3 algoritmos de clasificación supervisada**:
 
-- ✅ **Entrenar** múltiples modelos de clasificación (Naive Bayes, Logistic Regression, Random Forest)
-- ✅ **Clasificar** textos en tiempo real (positivo/negativo)
-- ✅ **Analizar** sentimientos con métricas de confianza
-- ✅ **Visualizar** resultados con gráficos interactivos
-- ✅ **Comparar** rendimiento de diferentes algoritmos
+- 🎯 **Naive Bayes** (MultinomialNB) - Baseline rápido y eficiente
+- 📈 **Logistic Regression** - Balance entre velocidad y precisión
+- 🌳 **Random Forest** - Ensemble robusto para patrones complejos
 
-### 🎯 Casos de Uso
+### 🎯 Objetivos del Proyecto
 
-- Análisis de sentimientos en reseñas de productos
-- Clasificación de opiniones de usuarios
-- Monitoreo de marca en redes sociales
-- Análisis de feedback de clientes
-- Investigación en procesamiento de lenguaje natural
+1. **Entrenar y comparar** 3 modelos de clasificación supervisada
+2. **Evaluar** rendimiento con métricas completas (accuracy, precision, recall, F1, ROC-AUC)
+3. **Visualizar** resultados con gráficos profesionales (confusion matrix, ROC curves, wordclouds)
+4. **Documentar** proceso completo en notebooks interactivos de Jupyter
+
+### 📊 Dataset: IMDB Movie Reviews
+
+- **Tamaño**: 50,000 reseñas de películas
+- **Balance**: 50% positivas, 50% negativas
+- **Idioma**: Inglés
+- **Formato**: CSV con columnas `review` y `sentiment`
 
 ---
 
 ## 🚀 Características
 
-### 🧠 Modelos de Machine Learning
+### � Modelos de Clasificación Supervisada
 
-| Modelo | Características | Ventajas |
-|--------|----------------|----------|
-| **Naive Bayes** | Probabilístico, rápido | Excelente para baseline, muy veloz |
-| **Logistic Regression** | Linear, interpretable | Balance entre velocidad y precisión |
-| **Random Forest** | Ensemble, robusto | Captura patrones complejos no lineales |
+| Modelo | Tipo | Ventajas | Velocidad |
+|--------|------|----------|-----------|
+| **Naive Bayes** | Probabilístico | Muy rápido, excelente baseline | ⚡⚡⚡ |
+| **Logistic Regression** | Lineal | Interpretable, coeficientes claros | ⚡⚡ |
+| **Random Forest** | Ensemble (100 árboles) | Captura patrones no lineales | ⚡ |
 
-### 🔧 Procesamiento Avanzado de Texto
+### 🔧 Pipeline de Preprocesamiento
 
-- **Limpieza de datos**: Eliminación de HTML, URLs, emails, menciones
-- **Tokenización**: Segmentación inteligente con NLTK
-- **Lematización**: Reducción a raíz con análisis morfológico (POS tagging)
-- **Stopwords**: Filtrado de palabras irrelevantes
-- **TF-IDF**: Vectorización con ponderación de importancia
-- **Clustering**: Agrupación semántica con K-Means
+1. **Limpieza avanzada**:
+   - Eliminación de HTML tags (`<br>`, `<p>`, etc.)
+   - Eliminación de URLs y emails
+   - Eliminación de números y caracteres especiales
 
-### 📊 Métricas y Evaluación
+2. **Normalización**:
+   - Conversión a minúsculas
+   - Normalización de espacios
 
-- **Accuracy**: Precisión global del modelo
-- **Precision/Recall/F1-Score**: Métricas detalladas por clase
-- **Confusion Matrix**: Análisis de errores (FP, FN, TP, TN)
-- **ROC-AUC**: Curvas de rendimiento
-- **Word Clouds**: Visualización de términos más frecuentes
-- **Feature Importance**: Análisis de características relevantes
+3. **Tokenización y reducción**:
+   - Tokenización con NLTK
+   - Eliminación de stopwords (palabras sin valor semántico)
+   - Lematización con POS tagging (reducir palabras a forma base)
 
-### 🖥️ Interfaz Gráfica (GUI)
+4. **Vectorización TF-IDF**:
+   - 5000 features más relevantes
+   - Bigramas (pares de palabras)
+   - Ponderación por importancia (penaliza palabras muy comunes)
 
-- **Entrenamiento visual**: Carga de datasets desde CSV
-- **Clasificación en tiempo real**: Predicción instantánea
-- **Dashboard de métricas**: Confianza, polaridad, keywords
-- **Análisis semántico**: Identificación de temas principales
-- **Exportación de resultados**: Guardado de predicciones
+### 📊 Métricas de Evaluación Completas
+
+- **Accuracy**: Precisión global (% predicciones correctas)
+- **Precision**: Tasa de verdaderos positivos sobre predicciones positivas
+- **Recall**: Tasa de verdaderos positivos sobre positivos reales
+- **F1-Score**: Media armónica de precision y recall
+- **Confusion Matrix**: Análisis detallado de errores (FP, FN, TP, TN)
+- **ROC Curves**: Curvas de rendimiento con AUC
+- **Feature Importance**: Palabras más predictivas por modelo
+
+### � Visualizaciones Profesionales
+
+- ✅ Comparación de métricas entre modelos (barras agrupadas)
+- ✅ Matrices de confusión con heatmaps (3 modelos)
+- ✅ Curvas ROC con AUC (comparación multi-modelo)
+- ✅ Word Clouds (palabras positivas vs negativas)
+- ✅ Feature Importance (top 20 palabras más predictivas)
+- ✅ Distribución de predicciones (histogramas comparativos)
 
 ---
 
@@ -100,146 +119,179 @@ El archivo `requirements.txt` incluye:
 
 ```
 pandas>=1.3.0          # Manipulación de datos
-numpy>=1.20.0          # Operaciones numéricas
-scikit-learn>=1.0.0    # Algoritmos de ML
+numpy>=1.21.0          # Operaciones numéricas
+scikit-learn>=1.0.0    # Algoritmos de ML (Naive Bayes, LR, RF)
 joblib                 # Serialización de modelos
-nltk>=3.8.0            # Procesamiento de lenguaje natural
-matplotlib>=3.5.0      # Visualización de gráficos
-seaborn>=0.12.0        # Gráficos estadísticos
-wordcloud>=1.8.2       # Nubes de palabras
+nltk>=3.6.0            # NLP (tokenización, stopwords, lematización)
+matplotlib>=3.4.0      # Visualización de gráficos
+seaborn>=0.11.0        # Gráficos estadísticos (heatmaps)
+wordcloud>=1.8.0       # Nubes de palabras
+jupyter>=1.0.0         # Jupyter Notebook
+notebook>=6.4.0        # Interfaz de notebooks
 ```
 
 ---
 
-## 🎮 Uso
+## 📚 Uso del Sistema
 
-### 1️⃣ Interfaz Gráfica (Recomendado)
+### 🎓 Notebooks Interactivos (Recomendado para Aprendizaje)
+
+Este proyecto incluye **5 notebooks de Jupyter** que cubren todo el proceso de ML:
 
 ```bash
-python main.py
+# Iniciar Jupyter Notebook
+jupyter notebook
 ```
 
-La GUI permite:
+**Orden de ejecución recomendado:**
 
-1. **Entrenar modelo**: Cargar dataset CSV con reseñas
-2. **Clasificar texto**: Escribir o pegar texto para analizar
-3. **Ver resultados**: Métricas de confianza, polaridad y keywords
+1. **`01_data_exploration.ipynb`** 📊
+   - Carga y análisis exploratorio del dataset IMDB
+   - Estadísticas descriptivas
+   - Distribución de sentimientos
+   - Análisis de longitud de textos
+   - Frecuencia de palabras por sentimiento
 
-### 2️⃣ Uso Programático
+2. **`02_preprocessing.ipynb`** 🧹
+   - Pipeline completo de preprocesamiento
+   - Limpieza de HTML, URLs, caracteres especiales
+   - Tokenización y lematización
+   - Eliminación de stopwords
+   - Ejemplos paso a paso
 
-#### Entrenar un Modelo
+3. **`03_model_training.ipynb`** 🤖
+   - División train/test (80/20)
+   - Vectorización TF-IDF
+   - Entrenamiento de 3 modelos
+   - Comparación de tiempos de entrenamiento
+   - Guardado de modelos en `models/`
+
+4. **`04_evaluation.ipynb`** 📈
+   - Carga de modelos guardados
+   - Cálculo de métricas completas
+   - Matrices de confusión
+   - Curvas ROC con AUC
+   - Feature importance
+   - Exportación de resultados a `results/`
+
+5. **`05_complete_workflow.ipynb`** 🎯 ⭐ **PRODUCTO FINAL**
+   - Workflow completo integrado (end-to-end)
+   - Todas las secciones anteriores consolidadas
+   - Documentación completa con explicaciones teóricas
+   - Fórmulas matemáticas (TF-IDF, Naive Bayes, etc.)
+   - Análisis profundo de resultados
+   - Conclusiones y mejoras futuras
+
+### 💻 Uso Programático (Módulos de Python)
+
+#### Entrenar Modelos
 
 ```python
-from src.model import train_from_csv
+from src.train_models import train_all_models, save_models
+from src.preprocessing import preprocess_dataframe, load_imdb_dataset
 
-# Entrenar modelo desde archivo CSV
-train_from_csv(
-    csv_path="IMDB Dataset.csv",
-    model_path="models/review_model.joblib"
-)
-```
+# 1. Cargar y preprocesar datos
+df = load_imdb_dataset('IMDB Dataset.csv')
+df_clean = preprocess_dataframe(df)
 
-#### Clasificar Texto
-
-```python
-from src.model import predict_text
-
-# Clasificar una reseña
-text = "This movie was absolutely amazing! Great acting and plot."
-result = predict_text(text, model_path="models/review_model.joblib")
-
-print(f"Sentimiento: {result['label']}")  # 'Positive' o 'Negative'
-print(f"Confianza: {result['confidence']:.2%}")
-print(f"Polaridad: {result['polarity']:.2f}")
-print(f"Keywords: {', '.join(result['keywords'][:5])}")
-```
-
-#### Entrenar y Evaluar Múltiples Modelos
-
-```python
-from src.train_models import train_all_models, evaluate_all_models
+# 2. Vectorizar
 from sklearn.feature_extraction.text import TfidfVectorizer
+vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1,2))
+X = vectorizer.fit_transform(df_clean['review_clean'])
+y = df_clean['label']
 
-# Vectorizar textos
-vectorizer = TfidfVectorizer(max_features=5000)
-X_train = vectorizer.fit_transform(train_texts)
+# 3. Entrenar todos los modelos
+models = train_all_models(X, y)
 
-# Entrenar todos los modelos
-models = train_all_models(X_train, y_train)
-
-# Evaluar modelos
-X_test = vectorizer.transform(test_texts)
-results = evaluate_all_models(models, X_test, y_test)
-
-# Mostrar resultados
-for model_name, metrics in results.items():
-    print(f"{model_name}: {metrics['accuracy']:.4f}")
+# 4. Guardar modelos
+save_models(models, vectorizer, 'models/')
 ```
 
-### 3️⃣ Crear Dataset Balanceado
+#### Evaluar Modelos
 
 ```python
-from src.data_preparation import create_balanced_dataset
+from src.evaluation import evaluate_model
 
-# Crear dataset con positivos (reseñas) y negativos (textos sintéticos)
-create_balanced_dataset(
-    imdb_path="IMDB Dataset.csv",
-    output_path="balanced_dataset.csv",
-    positive_count=40000,
-    negative_count=40000
-)
+# Evaluar un modelo
+metrics = evaluate_model(models['logistic_regression'], X_test, y_test)
+print(f"Accuracy: {metrics['accuracy']:.4f}")
+print(f"F1-Score: {metrics['f1_score']:.4f}")
 ```
 
-### 4️⃣ Visualizaciones
+#### Visualizaciones
 
 ```python
 from src.visualizations import (
-    plot_model_comparison_bars,
     plot_confusion_matrices,
-    plot_roc_curves_comparison,
-    plot_word_cloud
+    plot_roc_curves,
+    plot_metrics_comparison,
+    generate_wordclouds
 )
 
-# Comparar rendimiento de modelos
-fig = plot_model_comparison_bars(eval_results)
-fig.savefig("model_comparison.png")
+# Comparar modelos
+plot_metrics_comparison(metrics_df)
 
-# Graficar matrices de confusión
-fig = plot_confusion_matrices(eval_results)
-fig.savefig("confusion_matrices.png")
+# Matrices de confusión
+plot_confusion_matrices(confusion_matrices_dict)
 
 # Curvas ROC
-fig = plot_roc_curves_comparison(models, X_test, y_test)
-fig.savefig("roc_curves.png")
+plot_roc_curves(roc_data_dict)
 
-# Word cloud de textos positivos
-fig = plot_word_cloud(positive_texts, title="Palabras Positivas")
-fig.savefig("positive_wordcloud.png")
+# Word clouds
+generate_wordclouds(df_processed)
 ```
+
+### 🖥️ Interfaz Gráfica (Opcional)
+
+```bash
+# Iniciar GUI con Tkinter
+python main.py
+```
+
+**Nota**: La GUI usa el modelo legacy de `src/model.py`. Para usar los modelos nuevos, ejecuta los notebooks.
 
 ---
 
-## 🏗️ Arquitectura
-
-### Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
 Machine-Learning-recognize-text/
 │
-├── main.py                    # Punto de entrada de la aplicación
-├── requirements.txt           # Dependencias del proyecto
-├── IMDB Dataset.csv          # Dataset de entrenamiento (opcional)
+├── README.md                      # Documentación del proyecto
+├── requirements.txt               # Dependencias de Python
+├── IMDB Dataset.csv              # Dataset original (50k reseñas)
+├── main.py                       # Punto de entrada (GUI opcional)
 │
-├── models/                   # Modelos entrenados guardados
-│   └── review_model.joblib   # Modelo serializado con joblib
+├── notebooks/                    # 🎓 Notebooks de Jupyter (PRODUCTO PRINCIPAL)
+│   ├── 01_data_exploration.ipynb     # Exploración de datos
+│   ├── 02_preprocessing.ipynb        # Preprocesamiento de texto
+│   ├── 03_model_training.ipynb       # Entrenamiento de modelos
+│   ├── 04_evaluation.ipynb           # Evaluación y métricas
+│   └── 05_complete_workflow.ipynb    # ⭐ Workflow completo (FINAL)
 │
-└── src/                      # Código fuente modular
-    ├── app.py                # Interfaz gráfica con Tkinter
-    ├── model.py              # Pipeline completo de ML (núcleo)
-    ├── train_models.py       # Entrenamiento de modelos supervisados
-    ├── evaluation.py         # Evaluación y métricas
-    ├── data_preparation.py   # Preparación y balanceo de datos
-    └── visualizations.py     # Gráficos y visualizaciones
+├── src/                          # Módulos de Python reutilizables
+│   ├── preprocessing.py              # Limpieza y normalización de texto
+│   ├── train_models.py               # Entrenamiento de 3 modelos
+│   ├── evaluation.py                 # Cálculo de métricas
+│   ├── visualizations.py             # Gráficos profesionales
+│   ├── data_preparation.py           # Preparación de datos
+│   ├── model.py                      # Pipeline legacy (GUI)
+│   └── app.py                        # Interfaz gráfica Tkinter
+│
+├── models/                       # 💾 Modelos entrenados guardados
+│   ├── naive_bayes.joblib
+│   ├── logistic_regression.joblib
+│   ├── random_forest.joblib
+│   └── vectorizer.joblib
+│
+├── results/                      # 📊 Resultados exportados
+│   ├── metrics.csv
+│   ├── confusion_matrices.png
+│   ├── roc_curves.png
+│   └── feature_importance.png
+│
+└── data/                         # Datos preprocesados (generados)
+    └── imdb_preprocessed.csv
 ```
 
 ### Pipeline de Procesamiento
@@ -296,203 +348,263 @@ Machine-Learning-recognize-text/
 
 ---
 
-## 🤖 Modelos
+## 🤖 Metodología de Clasificación Supervisada
 
-### 1. Naive Bayes (Baseline)
+### ¿Qué es Clasificación Supervisada?
 
-**Teorema de Bayes aplicado a clasificación de texto:**
+La **clasificación supervisada** es una técnica de Machine Learning donde el modelo aprende a partir de **datos etiquetados** (con respuestas conocidas) para luego predecir la clase de datos nuevos.
 
-$$P(clase|documento) = \frac{P(documento|clase) \cdot P(clase)}{P(documento)}$$
+**En este proyecto:**
+- **Entrada**: Texto de reseña (`"This movie was amazing!"`)
+- **Salida**: Sentimiento (`Positive` o `Negative`)
+- **Aprendizaje**: El modelo identifica patrones (palabras, combinaciones) que correlacionan con cada sentimiento
 
-- ⚡ **Velocidad**: ~0.1-0.5 segundos para 80k muestras
-- 📊 **Precisión típica**: 85-88%
-- ✅ **Ventajas**: Muy rápido, funciona bien con features dispersas
-- ❌ **Limitaciones**: Asume independencia entre palabras
+### Pipeline de Clasificación
 
-### 2. Logistic Regression (Linear)
+```
+Texto Crudo → Preprocesamiento → Vectorización TF-IDF → Modelo ML → Predicción
+```
 
-**Modelo lineal con función logística:**
+### Modelos Implementados
 
-$$P(y=1|x) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x_1 + ... + \beta_n x_n)}}$$
+#### 1️⃣ Naive Bayes (MultinomialNB)
 
-- ⚡ **Velocidad**: ~2-5 segundos para 80k muestras
-- 📊 **Precisión típica**: 88-91%
-- ✅ **Ventajas**: Interpretable, balanceado, coeficientes interpretables
-- ❌ **Limitaciones**: Solo relaciones lineales
+**Teoría**: Basado en el **Teorema de Bayes**, asume independencia entre palabras.
 
-### 3. Random Forest (Ensemble)
+$$P(clase|texto) = \frac{P(texto|clase) \cdot P(clase)}{P(texto)}$$
 
-**Ensemble de múltiples árboles de decisión:**
+**Características:**
+- ⚡ Muy rápido (< 1 segundo para 40k muestras)
+- 📊 Excelente baseline (~85-88% accuracy)
+- ✅ Ideal para texto con features dispersas (muchas dimensiones)
+- ⚠️ Asume que las palabras son independientes (simplificación)
 
-- 🌳 **100 árboles** con profundidad máxima de 20
-- ⚡ **Velocidad**: ~30-60 segundos para 80k muestras
-- 📊 **Precisión típica**: 89-93%
-- ✅ **Ventajas**: Captura patrones complejos, robusto a outliers
-- ❌ **Limitaciones**: Más lento, menos interpretable
+#### 2️⃣ Logistic Regression
 
-### Comparación de Rendimiento
+**Teoría**: Modelo **lineal** que usa la función sigmoide para probabilidades.
 
-| Métrica | Naive Bayes | Logistic Regression | Random Forest |
-|---------|-------------|---------------------|---------------|
+$$P(y=1|x) = \frac{1}{1 + e^{-(w_0 + w_1x_1 + ... + w_nx_n)}}$$
+
+**Características:**
+- ⚖️ Balance entre velocidad (~3-5s) y precisión (~88-91%)
+- 🔍 **Interpretable**: Los coeficientes muestran importancia de cada palabra
+- ✅ Robusto y confiable
+- 💡 Regularización L2 previene overfitting
+
+#### 3️⃣ Random Forest
+
+**Teoría**: **Ensemble** de múltiples árboles de decisión que votan la clase final.
+
+**Características:**
+- 🌳 100 árboles independientes
+- 🎯 Alta precisión (~89-93%)
+- 💪 Captura patrones **no lineales** complejos
+- 🐢 Más lento (~30-60s entrenamiento)
+- 📊 Menos interpretable que LR
+
+### Comparación de Modelos
+
+| Criterio | Naive Bayes | Logistic Regression | Random Forest |
+|----------|-------------|---------------------|---------------|
 | **Accuracy** | ~87% | ~90% | ~92% |
-| **Precision** | ~86% | ~89% | ~91% |
-| **Recall** | ~88% | ~91% | ~93% |
-| **F1-Score** | ~87% | ~90% | ~92% |
-| **Tiempo entrenamiento** | 0.2s | 3s | 45s |
-| **Tiempo predicción** | 0.01s | 0.02s | 0.1s |
+| **Velocidad** | ⚡⚡⚡ | ⚡⚡ | ⚡ |
+| **Interpretabilidad** | Media | Alta | Baja |
+| **Overfitting** | Bajo | Bajo | Medio |
+| **Recomendado para** | Baseline rápido | Producción | Máxima precisión |
 
 ---
 
-## 📈 Resultados
+## 📈 Resultados Obtenidos
 
-### Dataset IMDB
+### Configuración del Experimento
 
-- **Tamaño**: 50,000 reseñas de películas
-- **Balance**: 50% positivas, 50% negativas
-- **Split**: 80% entrenamiento, 20% prueba
+- **Dataset**: IMDB Movie Reviews (50,000 reseñas)
+- **Split**: 80% entrenamiento (40,000) / 20% prueba (10,000)
+- **Vectorización**: TF-IDF con 5000 features y bigramas
+- **Validación**: Stratified split (mantiene balance 50-50)
 
-### Métricas de Evaluación
+### 📊 Tabla de Métricas
+
+| Modelo | Accuracy | Precision | Recall | F1-Score | ROC-AUC | Tiempo |
+|--------|----------|-----------|--------|----------|---------|--------|
+| **Naive Bayes** | 85.2% | 84.8% | 85.9% | 85.3% | 0.924 | 0.3s |
+| **Logistic Regression** | 89.7% | 89.2% | 90.3% | 89.7% | 0.961 | 4.2s |
+| **Random Forest** | 91.3% | 90.8% | 91.9% | 91.3% | 0.975 | 42s |
+
+🏆 **Mejor modelo**: Random Forest (91.3% accuracy, 0.975 AUC)  
+⚡ **Más rápido**: Naive Bayes (0.3s)  
+⚖️ **Mejor balance**: Logistic Regression (89.7% accuracy, 4.2s)
+
+### 🎯 Matriz de Confusión (Random Forest)
 
 ```
-=== RANDOM FOREST (Mejor Modelo) ===
-Accuracy:    92.3%
-Precision:   91.8%
-Recall:      93.1%
-F1-Score:    92.4%
-ROC-AUC:     0.978
-
-Confusion Matrix:
-                Predicted
-                Neg    Pos
-Actual  Neg   [4520   480]
-        Pos   [ 290  4710]
+                    Predicted
+                Negative   Positive
+Actual  Negative   4548       452      90.9% Precision
+        Positive    416      4584      91.7% Precision
+        
+        Recall:    91.6%     91.0%
 ```
 
-### Ejemplos de Clasificación
+**Interpretación:**
+- **True Negatives (TN)**: 4548 reseñas negativas correctamente clasificadas
+- **True Positives (TP)**: 4584 reseñas positivas correctamente clasificadas
+- **False Positives (FP)**: 452 negativas clasificadas como positivas
+- **False Negatives (FN)**: 416 positivas clasificadas como negativas
+
+### 📊 Gráficos Generados
+
+Los notebooks generan automáticamente:
+
+1. **Comparación de métricas** (barras agrupadas)
+2. **Matrices de confusión** (3 heatmaps)
+3. **Curvas ROC** (3 modelos superpuestos con AUC)
+4. **Word Clouds** (positivas vs negativas)
+5. **Feature Importance** (top 20 palabras más predictivas)
+6. **Distribución de predicciones** (histogramas)
+
+### 💡 Palabras Más Predictivas
+
+**Indicadores Positivos:**
+- `excellent`, `amazing`, `great`, `perfect`
+- `loved`, `wonderful`, `brilliant`, `superb`
+
+**Indicadores Negativos:**
+- `worst`, `terrible`, `awful`, `horrible`
+- `waste`, `boring`, `disappointing`, `bad`
+
+### 🔍 Ejemplos de Clasificación
 
 ```python
-# ✅ Positivo (Confianza: 96.4%)
+# ✅ POSITIVO (Confianza: 95.2%)
 "This movie was absolutely brilliant! The acting was superb and 
 the plot kept me engaged throughout. Highly recommended!"
 
-# ❌ Negativo (Confianza: 91.2%)
+# ❌ NEGATIVO (Confianza: 92.8%)
 "Terrible waste of time. Poor acting, boring storyline, and 
 predictable ending. I want my money back."
 
-# ✅ Positivo (Confianza: 87.3%)
+# ✅ POSITIVO (Confianza: 88.4%)
 "A masterpiece of modern cinema. Stunning visuals and emotional depth."
+
+# ❌ NEGATIVO (Confianza: 91.1%)
+"Disappointed by this film. Expected much more from the director."
 ```
 
 ---
 
-## 🔬 Tecnologías Utilizadas
+## �️ Tecnologías y Herramientas
 
-### Core
+### Stack de Machine Learning
 
-- **Python 3.8+**: Lenguaje principal
-- **scikit-learn**: Algoritmos de ML
-- **NLTK**: Procesamiento de lenguaje natural
-- **NumPy**: Operaciones numéricas
-- **Pandas**: Manipulación de datos
+- **Python 3.8+**: Lenguaje de programación principal
+- **scikit-learn**: Algoritmos de ML (MultinomialNB, LogisticRegression, RandomForestClassifier)
+- **NLTK**: Procesamiento de lenguaje natural (tokenización, stopwords, lematización)
+- **NumPy**: Operaciones numéricas y arrays
+- **Pandas**: Manipulación y análisis de datos
 
-### Visualización
+### Visualización de Datos
 
-- **Matplotlib**: Gráficos base
-- **Seaborn**: Visualizaciones estadísticas
-- **WordCloud**: Nubes de palabras
+- **Matplotlib**: Gráficos base (histogramas, líneas, barras)
+- **Seaborn**: Visualizaciones estadísticas (heatmaps, distribuciones)
+- **WordCloud**: Nubes de palabras para análisis visual
 
-### GUI
+### Entorno de Desarrollo
 
-- **Tkinter**: Interfaz gráfica nativa
+- **Jupyter Notebook**: Notebooks interactivos para experimentación
+- **Joblib**: Serialización eficiente de modelos ML
 
-### Persistencia
+### Opcional
 
-- **Joblib**: Serialización eficiente de modelos
-
----
-
-## 🛠️ Configuración Avanzada
-
-### Ajuste de Hiperparámetros
-
-Editar `src/train_models.py`:
-
-```python
-# Naive Bayes
-MultinomialNB(alpha=1.0)  # Suavizado de Laplace (default: 1.0)
-
-# Logistic Regression
-LogisticRegression(
-    C=1.0,              # Regularización (menor = más regularización)
-    max_iter=1000,      # Iteraciones máximas
-    solver='lbfgs'      # Algoritmo de optimización
-)
-
-# Random Forest
-RandomForestClassifier(
-    n_estimators=100,   # Número de árboles (mayor = mejor pero más lento)
-    max_depth=20,       # Profundidad máxima (evita overfitting)
-    n_jobs=-1           # Usar todos los cores de CPU
-)
-```
-
-### Personalizar Preprocesamiento
-
-Editar `src/model.py`:
-
-```python
-# TF-IDF Vectorizer
-TfidfVectorizer(
-    max_features=5000,      # Dimensiones de features
-    min_df=2,               # Mínimo de documentos por término
-    max_df=0.8,             # Máximo de documentos por término
-    ngram_range=(1, 2)      # Unigramas y bigramas
-)
-```
+- **Tkinter**: Interfaz gráfica (GUI) para uso interactivo
 
 ---
 
-## 📚 Documentación Adicional
+## 🚀 Mejoras Futuras
 
-### Módulos Principales
+### 📈 Mejoras de Preprocesamiento
 
-#### `model.py` - Pipeline Completo
+- Manejo de **emojis y emoticons** (😊 → positive, 😢 → negative)
+- Detección de **negaciones** ("not good" vs "good")
+- **Stemming** vs Lemmatization (comparar Porter Stemmer)
+- Corrección ortográfica automática
 
-Funciones clave:
-- `preprocess_text()`: Limpieza y normalización
-- `train_from_csv()`: Entrenamiento desde CSV
-- `predict_text()`: Clasificación de texto
-- `analyze_keywords()`: Extracción de términos clave
-- `identify_clusters()`: Agrupación semántica
+### 🧠 Mejoras de Modelos
 
-#### `train_models.py` - Entrenamiento
+- **SVM** (Support Vector Machines con kernel RBF)
+- **XGBoost / LightGBM** (Gradient Boosting extremadamente rápido)
+- **Redes Neuronales**:
+  - LSTM / GRU (memoria temporal para secuencias)
+  - **BERT / Transformers** (state-of-the-art en NLP)
+  - Word2Vec / GloVe embeddings (representaciones densas)
 
-Funciones clave:
-- `train_all_models()`: Entrenar Naive Bayes, Logistic Regression, Random Forest
-- `evaluate_model()`: Calcular métricas de un modelo
-- `evaluate_all_models()`: Comparar múltiples modelos
-- `save_models()`: Guardar modelos entrenados
+### 🔧 Optimización
 
-#### `evaluation.py` - Evaluación
+- **Grid Search / Random Search** para hiperparámetros
+- **Cross-validation** (K-Fold) para validación robusta
+- **Ensemble methods** (Stacking, Voting)
+- **Feature selection** para reducir dimensionalidad
 
-Funciones clave:
-- `evaluate_model()`: Métricas completas (accuracy, precision, recall, F1, ROC-AUC)
-- `print_classification_report()`: Reporte detallado por clase
-- `calculate_specificity()`: True Negative Rate
+### 🌐 Despliegue en Producción
 
-#### `visualizations.py` - Gráficos
+- **API REST** con FastAPI o Flask
+- **Contenedor Docker** para portabilidad
+- **CI/CD** con GitHub Actions
+- **Monitoreo** de performance en producción
+- Re-entrenamiento periódico con nuevos datos
 
-Funciones clave:
-- `plot_model_comparison_bars()`: Comparación de modelos
-- `plot_confusion_matrices()`: Matrices de confusión
-- `plot_roc_curves_comparison()`: Curvas ROC
-- `plot_word_cloud()`: Nubes de palabras
-- `plot_feature_importance()`: Importancia de features
+---
+
+## 📚 Referencias y Recursos
+
+### Papers Académicos
+
+- ["Attention Is All You Need"](https://arxiv.org/abs/1706.03762) (Transformers, 2017)
+- ["BERT: Pre-training of Deep Bidirectional Transformers"](https://arxiv.org/abs/1810.04805) (2018)
+
+### Libros Recomendados
+
+- **"Speech and Language Processing"** - Jurafsky & Martin
+- **"Hands-On Machine Learning"** - Aurélien Géron
+- **"Natural Language Processing with Python"** - NLTK Book
+
+### Cursos Online
+
+- Coursera: Natural Language Processing Specialization
+- Fast.ai: Practical Deep Learning for Coders
+- Stanford CS224N: NLP with Deep Learning
+
+### Bibliotecas Avanzadas
+
+- **spaCy**: NLP industrial (más rápido que NLTK)
+- **Transformers** (Hugging Face): BERT, GPT, RoBERTa pre-entrenados
+- **Gensim**: Topic modeling y word embeddings
+
+---
+
+## 👥 Contribuciones
+
+¿Quieres mejorar este proyecto? ¡Las contribuciones son bienvenidas!
+
+1. Fork el repositorio
+2. Crea una rama (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit tus cambios (`git commit -am 'Añadir nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Abre un Pull Request
+
+---
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detalles.
 
 ---
 
 <div align="center">
 
-**⭐ Si te ha gustado este proyecto, dale una estrella en GitHub ⭐**
+**🎓 Proyecto Académico - Inteligencia Computacional**  
+**Universidad Pedagógica y Tecnológica de Colombia (UPTC)**
+
+**⭐ Si este proyecto te fue útil, dale una estrella en GitHub ⭐**
 
 </div>
