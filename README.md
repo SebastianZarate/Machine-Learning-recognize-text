@@ -247,11 +247,11 @@ generate_wordclouds(df_processed)
 ### 🖥️ Interfaz Gráfica (Opcional)
 
 ```bash
-# Iniciar GUI con Tkinter
+# Iniciar GUI con Tkinter (opcional)
 python main.py
 ```
 
-**Nota**: La GUI usa el modelo legacy de `src/model.py`. Para usar los modelos nuevos, ejecuta los notebooks.
+**Nota**: La GUI permite entrenar modelos y clasificar textos con interfaz gráfica. Para aprendizaje profundo, se recomienda usar los notebooks.
 
 ---
 
@@ -277,8 +277,7 @@ Machine-Learning-recognize-text/
 │   ├── train_models.py               # Entrenamiento de 3 modelos
 │   ├── evaluation.py                 # Cálculo de métricas
 │   ├── visualizations.py             # Gráficos profesionales
-│   ├── data_preparation.py           # Preparación de datos
-│   ├── model.py                      # Pipeline legacy (GUI)
+│   ├── config.py                     # Configuración del proyecto
 │   └── app.py                        # Interfaz gráfica Tkinter
 │
 ├── models/                       # 💾 Modelos entrenados guardados
