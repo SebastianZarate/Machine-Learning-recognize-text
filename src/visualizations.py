@@ -1234,6 +1234,221 @@ def plot_text_length_distribution(df: pd.DataFrame,
     return fig
 
 
+def plot_class_distribution(labels: List[int],
+                           class_names: List[str] = ['Not Review', 'Review'],
+                           figsize: Tuple[int, int] = (8, 6),
+                           title: str = 'Class Distribution') -> plt.Figure:
+    """Visualiza la distribución de clases en el dataset.
+    
+    Entender el dataset es fundamental. Si hay desbalanceo de clases,
+    esto afecta el modelo y debe documentarse. Esta función muestra
+    el conteo y porcentaje de cada clase de forma clara.
+    
+    Args:
+        labels: Lista de etiquetas (0 o 1)
+        class_names: Nombres para las clases [clase_0, clase_1]
+        figsize: Tamaño de la figura (ancho, alto) en pulgadas
+        title: Título del gráfico
+    
+    Returns:
+        plt.Figure: Figura de matplotlib con gráfico de barras
+    
+    Examples:
+        >>> # Visualizar distribución de clases
+        >>> labels = df['label'].tolist()
+        >>> fig = plot_class_distribution(labels)
+        >>> fig.savefig('class_distribution.png', dpi=300, bbox_inches='tight')
+        >>> plt.show()
+        
+        >>> # Con nombres personalizados
+        >>> fig = plot_class_distribution(
+        ...     labels,
+        ...     class_names=['Negative', 'Positive'],
+        ...     title='Sentiment Distribution'
+        ... )
+    
+    Notes:
+        **Por qué es importante:**
+        - Detecta desbalanceo de clases (ej: 90% clase 1, 10% clase 0)
+        - Desbalanceo afecta métricas (accuracy puede ser engañoso)
+        - Ayuda a decidir si usar técnicas de balanceo (SMOTE, undersampling)
+        - Documenta características del dataset
+        
+        **Interpretación:**
+        - 50/50: Dataset balanceado (ideal)
+        - 60/40: Leve desbalanceo (aceptable)
+        - 70/30: Desbalanceo moderado (considerar técnicas de balanceo)
+        - 80/20+: Desbalanceo severo (requiere atención especial)
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Calcular conteos
+    counts = pd.Series(labels).value_counts().sort_index()
+    colors = ['#e74c3c', '#27ae60']  # Rojo para clase 0, verde para clase 1
+    
+    # Crear barras
+    bars = ax.bar(class_names, counts, color=colors, alpha=0.7, 
+                  edgecolor='black', linewidth=1.5)
+    
+    # Agregar porcentajes y conteos
+    total = len(labels)
+    for idx, bar in enumerate(bars):
+        height = bar.get_height()
+        percentage = (height / total) * 100
+        ax.text(
+            bar.get_x() + bar.get_width()/2., 
+            height,
+            f'{int(height)}\n({percentage:.1f}%)',
+            ha='center', 
+            va='bottom', 
+            fontsize=12, 
+            fontweight='bold'
+        )
+    
+    # Línea de referencia (50%)
+    ax.axhline(y=total/2, color='gray', linestyle='--', linewidth=2, 
+               alpha=0.5, label='Perfect Balance (50%)')
+    
+    # Configurar ejes
+    ax.set_ylabel('Number of Samples', fontsize=12, fontweight='bold')
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+    ax.legend(loc='upper right', fontsize=10)
+    ax.grid(axis='y', alpha=0.3, linestyle='--')
+    
+    plt.tight_layout()
+    
+    return fig
+
+
+def plot_text_length_distribution(texts: List[str],
+                                  labels: List[int],
+                                  class_names: List[str] = ['Not Review', 'Review'],
+                                  figsize: Tuple[int, int] = (14, 5),
+                                  bins: int = 50,
+                                  title: str = 'Text Length Distribution by Class') -> plt.Figure:
+    """Visualiza distribución de longitud de textos por clase.
+    
+    Si las longitudes promedio son muy diferentes entre clases, el modelo
+    podría estar "haciendo trampa" clasificando solo por longitud en lugar
+    de contenido semántico. Esta función documenta estas diferencias.
+    
+    Args:
+        texts: Lista de strings (textos)
+        labels: Lista de etiquetas (0 o 1)
+        class_names: Nombres para las clases [clase_0, clase_1]
+        figsize: Tamaño de la figura (ancho, alto) en pulgadas
+        bins: Número de bins para histogramas
+        title: Título general del gráfico
+    
+    Returns:
+        plt.Figure: Figura de matplotlib con dos subplots (histogramas)
+    
+    Examples:
+        >>> # Análisis básico de longitudes
+        >>> texts = df['text'].tolist()
+        >>> labels = df['label'].tolist()
+        >>> fig = plot_text_length_distribution(texts, labels)
+        >>> fig.savefig('text_lengths.png', dpi=300, bbox_inches='tight')
+        >>> plt.show()
+        
+        >>> # Con nombres personalizados
+        >>> fig = plot_text_length_distribution(
+        ...     texts,
+        ...     labels,
+        ...     class_names=['Negative', 'Positive'],
+        ...     bins=30
+        ... )
+    
+    Notes:
+        **Punto crítico**: Si las longitudes promedio son muy diferentes
+        entre clases (ej: reseñas 200 palabras, no-reseñas 50 palabras),
+        el modelo podría estar "haciendo trampa" clasificando solo por
+        longitud en lugar de contenido.
+        
+        **Interpretación:**
+        - Medias similares (±10%): Bueno, modelo usa contenido
+        - Medias diferentes (±30%): Precaución, verificar feature importance
+        - Medias muy diferentes (±50%+): Problema, modelo usa longitud como atajo
+        
+        **Qué hacer si hay diferencias grandes:**
+        - Normalizar longitudes en preprocesamiento
+        - Verificar que vectorizador no use features relacionadas con longitud
+        - Analizar feature importance para confirmar
+        - Considerar balancear longitudes entre clases
+    """
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
+    
+    # Calcular longitudes (número de palabras)
+    lengths_by_class = {0: [], 1: []}
+    for text, label in zip(texts, labels):
+        word_count = len(str(text).split())
+        lengths_by_class[label].append(word_count)
+    
+    # Histogramas para cada clase
+    for idx, class_label in enumerate([0, 1]):
+        lengths = lengths_by_class[class_label]
+        
+        # Crear histograma
+        axes[idx].hist(
+            lengths, 
+            bins=bins,
+            color='#3498db' if idx == 1 else '#e74c3c',
+            alpha=0.7, 
+            edgecolor='black',
+            linewidth=0.5
+        )
+        
+        # Calcular estadísticas
+        mean_len = np.mean(lengths)
+        median_len = np.median(lengths)
+        std_len = np.std(lengths)
+        
+        # Líneas de referencia
+        axes[idx].axvline(
+            mean_len, 
+            color='red', 
+            linestyle='--',
+            linewidth=2, 
+            label=f'Mean: {mean_len:.0f}'
+        )
+        axes[idx].axvline(
+            median_len, 
+            color='green', 
+            linestyle='--',
+            linewidth=2, 
+            label=f'Median: {median_len:.0f}'
+        )
+        
+        # Configurar subplot
+        axes[idx].set_xlabel('Number of Words', fontsize=11, fontweight='bold')
+        axes[idx].set_ylabel('Frequency', fontsize=11, fontweight='bold')
+        axes[idx].set_title(
+            f'Text Length: {class_names[idx]}\n(σ={std_len:.1f})',
+            fontsize=12, 
+            fontweight='bold'
+        )
+        axes[idx].legend(loc='upper right', fontsize=10)
+        axes[idx].grid(alpha=0.3, linestyle='--')
+    
+    # Título general
+    plt.suptitle(title, fontsize=14, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    
+    # Advertencia si diferencias son grandes
+    mean_0 = np.mean(lengths_by_class[0])
+    mean_1 = np.mean(lengths_by_class[1])
+    diff_percentage = abs(mean_0 - mean_1) / max(mean_0, mean_1) * 100
+    
+    if diff_percentage > 30:
+        warning_text = (f'⚠️ WARNING: Large difference in mean lengths '
+                       f'({diff_percentage:.1f}%). Model may use length as shortcut!')
+        fig.text(0.5, 0.01, warning_text, ha='center', fontsize=10, 
+                color='red', fontweight='bold',
+                bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.3))
+    
+    return fig
+
+
 def plot_feature_importance(model: Any,
                             feature_names: List[str],
                             top_n: int = 20,
