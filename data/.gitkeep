@@ -1,0 +1,2 @@
+# Esta carpeta almacena datos preprocesados generados por los notebooks
+# Se creará automáticamente el archivo imdb_preprocessed.csv al ejecutar 02_preprocessing.ipynb

@@ -3,8 +3,8 @@ import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
+import joblib
 
-# Asegurar que src esté en sys.path cuando se ejecute desde la raíz
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
@@ -66,7 +66,7 @@ def train_action(root, status_label, train_btn):
     threading.Thread(target=_train, daemon=True).start()
 
 
-def classify_action(text_widget, result_box, classify_btn):
+def classify_action(text_widget, result_box, classify_btn, model_selector=None):
     text = text_widget.get("1.0", tk.END).strip()
     if not text:
         messagebox.showwarning("Texto vacío", "Por favor, escriba o cargue un texto para clasificar")
@@ -76,8 +76,59 @@ def classify_action(text_widget, result_box, classify_btn):
     
     def _classify():
         try:
-            model_path = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
-            res = model.predict_text(text, model_path=model_path)
+            # Determinar qué modelo usar
+            if model_selector and model_selector.get():
+                selected_model = model_selector.get()
+                model_files = {
+                    'Naive Bayes': 'naive_bayes.joblib',
+                    'Logistic Regression': 'logistic_regression.joblib',
+                    'Random Forest': 'random_forest.joblib'
+                }
+                model_name = model_files.get(selected_model, 'logistic_regression.joblib')
+                model_path = os.path.join(os.path.dirname(script_dir), "models", model_name)
+                
+                # Intentar usar modelo nuevo
+                if os.path.exists(model_path):
+                    vectorizer_path = os.path.join(os.path.dirname(script_dir), "models", "vectorizer.joblib")
+                    if os.path.exists(vectorizer_path):
+                        # Cargar modelo y vectorizador modernos
+                        loaded_model = joblib.load(model_path)
+                        vectorizer = joblib.load(vectorizer_path)
+                        
+                        # Preprocesar y clasificar
+                        from preprocessing import preprocess_pipeline
+                        text_clean = preprocess_pipeline(text)
+                        text_vec = vectorizer.transform([text_clean])
+                        prediction = loaded_model.predict(text_vec)[0]
+                        
+                        # Obtener probabilidades
+                        if hasattr(loaded_model, 'predict_proba'):
+                            proba = loaded_model.predict_proba(text_vec)[0]
+                        else:
+                            proba = [0.5, 0.5]  # Fallback
+                        
+                        res = {
+                            'label': 'Positive' if prediction == 1 else 'Negative',
+                            'confidence': max(proba),
+                            'proba_neg': proba[0],
+                            'proba_pos': proba[1],
+                            'model_used': selected_model
+                        }
+                    else:
+                        # Fallback a modelo legacy
+                        model_path = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
+                        res = model.predict_text(text, model_path=model_path)
+                        res['model_used'] = 'Legacy (Cosine Similarity)'
+                else:
+                    # Fallback a modelo legacy
+                    model_path = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
+                    res = model.predict_text(text, model_path=model_path)
+                    res['model_used'] = 'Legacy (Cosine Similarity)'
+            else:
+                # Sin selector, usar modelo legacy
+                model_path = os.path.join(os.path.dirname(script_dir), "models", "review_model.joblib")
+                res = model.predict_text(text, model_path=model_path)
+                res['model_used'] = 'Legacy'
             
             result_box.configure(state="normal")
             result_box.delete("1.0", tk.END)
