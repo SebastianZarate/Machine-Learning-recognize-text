@@ -225,6 +225,238 @@ def plot_confusion_matrices(eval_results: Dict[str, Dict[str, Any]],
     return fig
 
 
+def plot_confusion_matrix(y_true: np.ndarray,
+                         y_pred: np.ndarray,
+                         labels: List[str] = ['Negative', 'Positive'],
+                         title: str = 'Confusion Matrix',
+                         normalize: bool = False,
+                         figsize: Tuple[int, int] = (8, 6),
+                         cmap: str = 'Blues') -> plt.Figure:
+    """Dibuja matriz de confusión para un solo modelo con opciones avanzadas.
+    
+    Esta es la visualización más importante para clasificación binaria.
+    Muestra verdaderos positivos, falsos positivos, verdaderos negativos,
+    y falsos negativos de forma intuitiva.
+    
+    Args:
+        y_true: Etiquetas reales (ground truth)
+        y_pred: Etiquetas predichas por el modelo
+        labels: Lista de nombres para las clases ['Clase0', 'Clase1']
+        title: Título del gráfico
+        normalize: Si True, muestra porcentajes; si False, muestra conteos
+        figsize: Tamaño de la figura (ancho, alto) en pulgadas
+        cmap: Mapa de colores ('Blues', 'Greens', 'Reds', 'YlOrRd', etc.)
+    
+    Returns:
+        plt.Figure: Figura de matplotlib que puede ser guardada o mostrada
+    
+    Examples:
+        >>> from src.model import predict_text
+        >>> # Predecir con el modelo
+        >>> y_pred = [model.predict(x) for x in X_test]
+        >>> 
+        >>> # Matriz con conteos absolutos
+        >>> fig = plot_confusion_matrix(y_test, y_pred, normalize=False)
+        >>> fig.savefig('confusion_counts.png', dpi=300, bbox_inches='tight')
+        >>> 
+        >>> # Matriz normalizada (porcentajes)
+        >>> fig = plot_confusion_matrix(
+        ...     y_test, 
+        ...     y_pred,
+        ...     labels=['Negativo', 'Positivo'],
+        ...     title='Matriz de Confusión Normalizada',
+        ...     normalize=True
+        ... )
+        >>> fig.savefig('confusion_normalized.png', dpi=300)
+    
+    Notes:
+        - **Verdaderos Positivos (TP)**: [1,1] - Correctamente predicho como positivo
+        - **Falsos Positivos (FP)**: [0,1] - Incorrectamente predicho como positivo
+        - **Verdaderos Negativos (TN)**: [0,0] - Correctamente predicho como negativo
+        - **Falsos Negativos (FN)**: [1,0] - Incorrectamente predicho como negativo
+        - Normalizar es útil cuando hay desbalanceo de clases
+        - La diagonal principal debe tener valores altos (predicciones correctas)
+    """
+    # Calcular matriz de confusión
+    cm = confusion_matrix(y_true, y_pred)
+    
+    # Normalizar si se solicita
+    if normalize:
+        cm_display = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        fmt = '.2%'
+        cbar_label = 'Proporción'
+    else:
+        cm_display = cm
+        fmt = 'd'
+        cbar_label = 'Cantidad'
+    
+    # Crear figura
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Crear heatmap
+    sns.heatmap(
+        cm_display,
+        annot=True,
+        fmt=fmt,
+        cmap=cmap,
+        xticklabels=labels,
+        yticklabels=labels,
+        cbar_kws={'label': cbar_label},
+        ax=ax,
+        square=True,
+        linewidths=1,
+        linecolor='gray',
+        vmin=0,
+        vmax=1 if normalize else None
+    )
+    
+    # Configurar etiquetas y título
+    ax.set_xlabel('Predicted Label', fontsize=12, fontweight='bold')
+    ax.set_ylabel('True Label', fontsize=12, fontweight='bold')
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+    
+    # Agregar estadísticas en la parte inferior
+    tn, fp, fn, tp = cm.ravel()
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+    
+    stats_text = f'Accuracy: {accuracy:.3f} | Precision: {precision:.3f} | Recall: {recall:.3f} | F1: {f1:.3f}'
+    fig.text(0.5, 0.02, stats_text, ha='center', fontsize=10, 
+             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+    
+    plt.tight_layout()
+    
+    return fig
+
+
+def plot_all_confusion_matrices(models: Dict[str, Any],
+                                X_test: np.ndarray,
+                                y_test: np.ndarray,
+                                labels: List[str] = ['Negative', 'Positive'],
+                                figsize: Optional[Tuple[int, int]] = None,
+                                cmap: str = 'Blues',
+                                normalize: bool = False) -> plt.Figure:
+    """Wrapper para dibujar matrices de confusión de todos los modelos.
+    
+    Crea una figura con múltiples subplots, uno para cada modelo,
+    mostrando su matriz de confusión. Alternativa más flexible a
+    plot_confusion_matrices() con opciones adicionales.
+    
+    Args:
+        models: Diccionario {model_name: model_object}
+        X_test: Datos de prueba (features)
+        y_test: Etiquetas reales de prueba
+        labels: Lista de nombres para las clases
+        figsize: Tamaño de la figura (se calcula automático si None)
+        cmap: Mapa de colores para los heatmaps
+        normalize: Si True, muestra porcentajes; si False, conteos
+    
+    Returns:
+        plt.Figure: Figura de matplotlib con múltiples matrices
+    
+    Examples:
+        >>> models = {
+        ...     'Naive Bayes': nb_model,
+        ...     'Logistic Regression': lr_model,
+        ...     'Random Forest': rf_model
+        ... }
+        >>> 
+        >>> # Matrices con conteos absolutos
+        >>> fig = plot_all_confusion_matrices(models, X_test, y_test)
+        >>> fig.savefig('all_confusion_matrices.png', dpi=300)
+        >>> 
+        >>> # Matrices normalizadas
+        >>> fig = plot_all_confusion_matrices(
+        ...     models, 
+        ...     X_test, 
+        ...     y_test,
+        ...     labels=['Negativo', 'Positivo'],
+        ...     normalize=True,
+        ...     cmap='YlOrRd'
+        ... )
+        >>> plt.show()
+    
+    Notes:
+        - Cada subplot muestra la matriz de un modelo diferente
+        - Los modelos se disponen en una fila horizontalmente
+        - Si hay más de 4 modelos, se crean múltiples filas
+        - Útil para comparar rápidamente el comportamiento de los modelos
+    """
+    n_models = len(models)
+    
+    # Calcular tamaño de figura si no se especifica
+    if figsize is None:
+        width = 6 * min(n_models, 3)  # Máximo 3 columnas
+        height = 5 * ((n_models + 2) // 3)  # Filas necesarias
+        figsize = (width, height)
+    
+    # Calcular grid de subplots
+    n_cols = min(3, n_models)
+    n_rows = (n_models + n_cols - 1) // n_cols
+    
+    # Crear figura
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
+    
+    # Asegurar que axes sea siempre un array
+    if n_models == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten() if n_models > 1 else [axes]
+    
+    # Dibujar matriz para cada modelo
+    for idx, (name, model) in enumerate(models.items()):
+        ax = axes[idx]
+        
+        # Hacer predicciones
+        y_pred = model.predict(X_test)
+        
+        # Calcular matriz de confusión
+        cm = confusion_matrix(y_test, y_pred)
+        
+        # Normalizar si se solicita
+        if normalize:
+            cm_display = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            fmt = '.2%'
+        else:
+            cm_display = cm
+            fmt = 'd'
+        
+        # Crear heatmap
+        sns.heatmap(
+            cm_display,
+            annot=True,
+            fmt=fmt,
+            cmap=cmap,
+            ax=ax,
+            cbar=True,
+            xticklabels=labels,
+            yticklabels=labels,
+            square=True,
+            linewidths=1,
+            linecolor='gray',
+            vmin=0,
+            vmax=1 if normalize else None
+        )
+        
+        ax.set_title(f'{name}', fontsize=12, fontweight='bold')
+        ax.set_xlabel('Predicted', fontsize=10)
+        ax.set_ylabel('Actual', fontsize=10)
+    
+    # Ocultar subplots vacíos
+    for idx in range(n_models, len(axes)):
+        axes[idx].axis('off')
+    
+    # Título general
+    title = 'Matrices de Confusión ' + ('Normalizadas' if normalize else '(Conteos Absolutos)')
+    plt.suptitle(title, fontsize=14, fontweight='bold', y=1.00)
+    
+    plt.tight_layout()
+    
+    return fig
+
+
 def plot_roc_curves_comparison(models: Dict[str, Any],
                                X_test: np.ndarray,
                                y_test: np.ndarray,
