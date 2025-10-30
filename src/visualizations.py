@@ -21,7 +21,7 @@ from wordcloud import WordCloud
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Optional, Tuple
-from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.metrics import confusion_matrix, roc_curve, auc, roc_auc_score
 
 # Configuración global de estilo
 plt.style.use('seaborn-v0_8-darkgrid')
@@ -531,6 +531,109 @@ def plot_roc_curves_comparison(models: Dict[str, Any],
     ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
     ax.legend(loc='lower right', fontsize=10)
     ax.grid(alpha=0.3, linestyle='--')
+    
+    plt.tight_layout()
+    
+    return fig
+
+
+def plot_roc_curves(models: Dict[str, Any],
+                   X_test: np.ndarray,
+                   y_test: np.ndarray,
+                   title: str = 'ROC Curves Comparison',
+                   figsize: Tuple[int, int] = (10, 8)) -> plt.Figure:
+    """Grafica curvas ROC para todos los modelos en un solo plot.
+    
+    La curva ROC (Receiver Operating Characteristic) muestra el trade-off 
+    entre tasa de verdaderos positivos (TPR/Recall) y falsos positivos (FPR)
+    a diferentes thresholds de clasificación. Es esencial para comparar 
+    modelos, especialmente cuando las clases están desbalanceadas.
+    
+    Args:
+        models: Diccionario {model_name: model_object}
+        X_test: Datos de prueba (features)
+        y_test: Etiquetas reales de prueba
+        title: Título del gráfico
+        figsize: Tamaño de la figura (ancho, alto) en pulgadas
+    
+    Returns:
+        plt.Figure: Figura de matplotlib con curvas ROC
+    
+    Examples:
+        >>> models = {
+        ...     'Naive Bayes': nb_model,
+        ...     'Logistic Regression': lr_model,
+        ...     'Random Forest': rf_model
+        ... }
+        >>> fig = plot_roc_curves(models, X_test, y_test)
+        >>> fig.savefig('roc_comparison.png', dpi=300, bbox_inches='tight')
+        >>> plt.show()
+        
+        >>> # Con título personalizado
+        >>> fig = plot_roc_curves(
+        ...     models, 
+        ...     X_test, 
+        ...     y_test,
+        ...     title='Comparación ROC - Clasificación de Sentimientos'
+        ... )
+    
+    Notes:
+        **Interpretación de AUC (Area Under Curve):**
+        - AUC = 0.5: Rendimiento aleatorio (no mejor que lanzar moneda)
+        - AUC = 0.5 - 0.7: Rendimiento pobre
+        - AUC = 0.7 - 0.8: Rendimiento aceptable
+        - AUC = 0.8 - 0.9: Rendimiento bueno
+        - AUC > 0.9: Rendimiento excelente
+        - AUC = 1.0: Clasificador perfecto
+        
+        **Puntos clave:**
+        - La línea diagonal representa un clasificador aleatorio
+        - Cuanto más cerca de la esquina superior izquierda, mejor
+        - Solo funciona con modelos que tienen predict_proba()
+        - Útil para comparar modelos cuando hay desbalanceo de clases
+        - Permite elegir threshold óptimo según necesidades del negocio
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    for name, model in models.items():
+        # Verificar que el modelo tiene predict_proba
+        if not hasattr(model, 'predict_proba'):
+            print(f"Skipping {name}: no predict_proba method")
+            continue
+        
+        # Obtener probabilidades predichas
+        y_proba = model.predict_proba(X_test)[:, 1]
+        
+        # Calcular curva ROC
+        fpr, tpr, thresholds = roc_curve(y_test, y_proba)
+        
+        # Calcular AUC
+        auc_score = roc_auc_score(y_test, y_proba)
+        
+        # Dibujar curva ROC
+        ax.plot(
+            fpr, 
+            tpr, 
+            linewidth=2,
+            label=f'{name} (AUC = {auc_score:.3f})',
+            alpha=0.8
+        )
+    
+    # Línea diagonal (clasificador aleatorio)
+    ax.plot([0, 1], [0, 1], 'k--', linewidth=1, 
+            label='Random Classifier (AUC = 0.500)',
+            alpha=0.6)
+    
+    # Configurar ejes y etiquetas
+    ax.set_xlabel('False Positive Rate', fontsize=12, fontweight='bold')
+    ax.set_ylabel('True Positive Rate', fontsize=12, fontweight='bold')
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+    ax.legend(loc='lower right', fontsize=10)
+    ax.grid(alpha=0.3, linestyle='--')
+    
+    # Configurar límites
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
     
     plt.tight_layout()
     
