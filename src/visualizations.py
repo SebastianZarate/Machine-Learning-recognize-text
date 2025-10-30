@@ -795,6 +795,182 @@ def plot_sentiment_word_clouds(df: pd.DataFrame,
     return fig
 
 
+def generate_wordcloud(texts: List[str],
+                      title: str = 'Word Cloud',
+                      max_words: int = 100,
+                      figsize: Tuple[int, int] = (12, 6),
+                      background_color: str = 'white',
+                      colormap: str = 'viridis') -> plt.Figure:
+    """Visualiza términos más frecuentes en forma de nube de palabras.
+    
+    Esta función genera un WordCloud que es una forma intuitiva de visualizar
+    qué palabras dominan en un conjunto de textos. El tamaño de cada palabra
+    representa su frecuencia de aparición.
+    
+    Args:
+        texts: Lista de strings (textos sin procesar o mínimamente procesados)
+        title: Título del gráfico
+        max_words: Número máximo de palabras a mostrar (default: 100)
+        figsize: Tamaño de la figura (ancho, alto) en pulgadas
+        background_color: Color de fondo ('white', 'black', etc.)
+        colormap: Mapa de colores ('viridis', 'plasma', 'inferno', 'cool', etc.)
+    
+    Returns:
+        plt.Figure: Figura de matplotlib que puede ser guardada o mostrada
+    
+    Examples:
+        >>> # Generar WordCloud básico
+        >>> texts = ["Este es un texto", "Otro texto más", "Más ejemplos"]
+        >>> fig = generate_wordcloud(texts, title='Términos Frecuentes')
+        >>> fig.savefig('wordcloud.png', dpi=300, bbox_inches='tight')
+        >>> plt.show()
+        
+        >>> # WordCloud con configuración personalizada
+        >>> fig = generate_wordcloud(
+        ...     reviews_list,
+        ...     title='Palabras Clave en Reseñas',
+        ...     max_words=150,
+        ...     background_color='black',
+        ...     colormap='plasma'
+        ... )
+    
+    Notes:
+        **Punto crítico**: Generar WordClouds sobre textos SIN preprocesar
+        (o con preprocesamiento mínimo) hace más legibles los resultados.
+        Si usas textos lemmatizados, las palabras pueden verse extrañas
+        ("movi" en lugar de "movie").
+        
+        - Las palabras más grandes = mayor frecuencia
+        - Útil para entender qué aprendió el modelo
+        - Ayuda a validar que los patrones tienen sentido
+    """
+    # Concatenar todos los textos
+    all_text = ' '.join(texts)
+    
+    # Configurar WordCloud
+    wordcloud = WordCloud(
+        width=800,
+        height=400,
+        background_color=background_color,
+        max_words=max_words,
+        colormap=colormap,
+        relative_scaling=0.5,
+        min_font_size=10,
+        collocations=False  # Evitar duplicados de bigramas
+    ).generate(all_text)
+    
+    # Plotear
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.imshow(wordcloud, interpolation='bilinear')
+    ax.set_title(title, fontsize=16, fontweight='bold', pad=15)
+    ax.axis('off')
+    
+    plt.tight_layout()
+    
+    return fig
+
+
+def plot_wordclouds_by_class(texts: List[str],
+                             labels: List[int],
+                             class_names: List[str] = ['Not Review', 'Review'],
+                             figsize: Tuple[int, int] = (16, 6),
+                             max_words: int = 100) -> plt.Figure:
+    """Genera dos WordClouds: uno para cada clase (reseñas vs no-reseñas).
+    
+    Esta función visualiza los términos más frecuentes para cada clase por
+    separado, ayudando a entender qué palabras dominan cada categoría y
+    validar que el modelo captura patrones con sentido.
+    
+    Args:
+        texts: Lista de strings (textos originales)
+        labels: Lista de etiquetas (0 o 1)
+        class_names: Nombres para las clases [clase_0, clase_1]
+        figsize: Tamaño de la figura (ancho, alto) en pulgadas
+        max_words: Número máximo de palabras por WordCloud
+    
+    Returns:
+        plt.Figure: Figura de matplotlib con dos subplots lado a lado
+    
+    Examples:
+        >>> # Uso básico con nombres de clase por defecto
+        >>> texts = df['text'].tolist()
+        >>> labels = df['label'].tolist()
+        >>> fig = plot_wordclouds_by_class(texts, labels)
+        >>> fig.savefig('models/wordclouds.png', dpi=300, bbox_inches='tight')
+        >>> plt.close()
+        
+        >>> # Con nombres de clase personalizados
+        >>> fig = plot_wordclouds_by_class(
+        ...     texts,
+        ...     labels,
+        ...     class_names=['Negative', 'Positive'],
+        ...     max_words=150
+        ... )
+        >>> plt.show()
+        
+        >>> # Integración en flujo de entrenamiento
+        >>> # En train_from_csv(), después de cargar datos:
+        >>> from visualizations import plot_wordclouds_by_class
+        >>> 
+        >>> # Obtener textos originales (sin procesar)
+        >>> fig = plot_wordclouds_by_class(
+        ...     df['text'].tolist(),
+        ...     df['label'].tolist(),
+        ...     class_names=['Negative', 'Positive']
+        ... )
+        >>> fig.savefig('models/wordclouds.png', dpi=300, bbox_inches='tight')
+        >>> plt.close()
+    
+    Notes:
+        **Punto crítico**: Usar textos SIN preprocesar o con preprocesamiento
+        mínimo para mejor legibilidad. Los textos lemmatizados pueden verse
+        extraños ("movi" en lugar de "movie", "plai" en lugar de "play").
+        
+        **Por qué es importante:**
+        - Ayuda a entender qué aprendió el modelo
+        - Valida que los patrones tienen sentido semántico
+        - Detecta problemas como stopwords no removidas
+        - Visualiza diferencias clave entre clases
+    """
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
+    
+    for idx, class_label in enumerate([0, 1]):
+        # Filtrar textos de esta clase
+        class_texts = [texts[i] for i in range(len(texts)) 
+                      if labels[i] == class_label]
+        
+        if not class_texts:
+            axes[idx].text(0.5, 0.5, 'No hay datos para esta clase',
+                          ha='center', va='center', fontsize=14)
+            axes[idx].axis('off')
+            continue
+        
+        # Generar WordCloud
+        all_text = ' '.join(class_texts)
+        wordcloud = WordCloud(
+            width=800,
+            height=400,
+            background_color='white',
+            max_words=max_words,
+            colormap='viridis' if idx == 0 else 'plasma',
+            relative_scaling=0.5,
+            min_font_size=10,
+            collocations=False
+        ).generate(all_text)
+        
+        # Plotear
+        axes[idx].imshow(wordcloud, interpolation='bilinear')
+        axes[idx].set_title(f'WordCloud: {class_names[idx]}',
+                           fontsize=14, fontweight='bold')
+        axes[idx].axis('off')
+    
+    plt.suptitle('Comparación de Términos por Clase',
+                 fontsize=16, fontweight='bold', y=1.00)
+    plt.tight_layout()
+    
+    return fig
+
+
 def plot_sentiment_distribution(df: pd.DataFrame,
                                 sentiment_column: str = 'sentiment',
                                 figsize: Tuple[int, int] = (10, 6),
