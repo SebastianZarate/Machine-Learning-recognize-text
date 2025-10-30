@@ -10,6 +10,7 @@ Author: Machine Learning Workshop
 Date: 2025-10-29
 """
 
+import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -25,6 +26,9 @@ from sklearn.metrics import (
     roc_curve,
     roc_auc_score
 )
+
+# Configurar logging
+logger = logging.getLogger(__name__)
 
 
 def evaluate_model(model: Any,

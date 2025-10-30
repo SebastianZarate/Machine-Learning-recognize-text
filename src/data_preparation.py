@@ -1,4 +1,37 @@
-"""Utilities to create a balanced dataset combining the IMDB reviews
+"""
+Este módulo es para casos de uso AVANZADOS y EXPERIMENTALES.
+El proyecto principal usa directamente 'IMDB Dataset.csv', que ya está
+balanceado (25,000 reseñas positivas + 25,000 negativas).
+
+═══════════════════════════════════════════════════════════════════════
+PROPÓSITO DE ESTE MÓDULO:
+═══════════════════════════════════════════════════════════════════════
+
+Este módulo genera datos sintéticos para un caso de uso DIFERENTE:
+  • Clasificación binaria: "Reseña vs No-Reseña"
+  • NO para análisis de sentimientos (positivo/negativo)
+
+Los textos sintéticos generados son noticias, recetas, artículos, etc.
+Estos NO son reseñas reales de películas.
+
+═══════════════════════════════════════════════════════════════════════
+FLUJO PRINCIPAL DEL PROYECTO (NO USA ESTE MÓDULO):
+═══════════════════════════════════════════════════════════════════════
+
+1. Cargar datos:
+   from preprocessing import load_imdb_dataset
+   df = load_imdb_dataset('IMDB Dataset.csv')
+
+2. Entrenar modelos:
+   Ver notebooks/03_model_training.ipynb
+   O ejecutar: python -m src.train_models
+
+3. Evaluar:
+   Ver notebooks/04_evaluation.ipynb
+
+═══════════════════════════════════════════════════════════════════════
+
+Utilities to create a balanced dataset combining the IMDB reviews
 and synthetic non-review examples (negatives).
 
 This module provides create_balanced_dataset() which will:
