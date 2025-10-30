@@ -195,7 +195,7 @@ class TestPreprocessPipeline:
         assert "excellent" in result or "amazing" in result or "terrible" in result
     
     @pytest.mark.parametrize("review,expected_length_min", [
-        ("This movie is great!", 3),
+        ("This movie is great!", 2),  # "movie great" después de remover stopwords
         ("Absolutely terrible film with bad acting", 5),
         ("", 0),
     ])
