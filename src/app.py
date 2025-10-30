@@ -5,7 +5,6 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 import joblib
 
-# Asegurar que src esté en sys.path cuando se ejecute desde la raíz
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
