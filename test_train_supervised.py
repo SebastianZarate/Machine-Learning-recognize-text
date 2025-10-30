@@ -74,15 +74,17 @@ def main():
         random_state=42
     )
     
-    # ========== PASO 3: EVALUAR MODELOS ==========
-    print("\n📊 PASO 3: Evaluar modelos entrenados")
+    # ========== PASO 3: VERIFICAR EVALUACIÓN AUTOMÁTICA ==========
+    print("\n📊 PASO 3: Verificar resultados de evaluación")
     print("-" * 80 + "\n")
     
-    # Cargar modelo guardado
+    # Cargar modelo guardado (ahora incluye evaluación automática)
     print(f"📂 Cargando modelo desde: {model_path}")
     model_data = joblib.load(model_path)
     
     trained_models = model_data['models']
+    eval_results = model_data.get('evaluation_results', None)
+    best_model_name = model_data.get('best_model_name', None)
     X_test = model_data['X_test']
     y_test = model_data['y_test']
     metadata = model_data.get('metadata', {})
@@ -95,15 +97,34 @@ def main():
     if metadata:
         print(f"   • Entrenado: {metadata.get('trained_at', 'N/A')}")
         print(f"   • Train samples: {metadata.get('train_samples', 'N/A'):,}")
+        if 'best_f1_score' in metadata:
+            print(f"   • Mejor F1-Score: {metadata['best_f1_score']:.4f}")
+        if 'best_accuracy' in metadata:
+            print(f"   • Mejor Accuracy: {metadata['best_accuracy']:.4f}")
     
-    print("\n🔍 Evaluando todos los modelos en test set...\n")
-    
-    all_metrics = evaluate_all_models(
-        models=trained_models,
-        X_test=X_test,
-        y_test=y_test,
-        verbose=True
-    )
+    # Verificar si la evaluación automática está disponible
+    if eval_results is not None:
+        print(f"\n✅ Evaluación automática encontrada (integrada en entrenamiento)")
+        print(f"   • Modelos evaluados: {len(eval_results)}")
+        if best_model_name:
+            print(f"   • Mejor modelo: {best_model_name}")
+        
+        # Usar resultados guardados
+        all_metrics = eval_results
+        print(f"\n💡 Los resultados ya fueron calculados durante el entrenamiento.")
+        print(f"   No es necesario re-evaluar (ahorra tiempo).\n")
+    else:
+        # Fallback: evaluar manualmente si no hay evaluación guardada
+        # (compatibilidad con modelos antiguos)
+        print(f"\n⚠️  Evaluación automática no encontrada (modelo antiguo)")
+        print(f"   Re-evaluando modelos...\n")
+        
+        all_metrics = evaluate_all_models(
+            models=trained_models,
+            X_test=X_test,
+            y_test=y_test,
+            verbose=True
+        )
     
     # ========== PASO 4: ANÁLISIS DE RESULTADOS ==========
     print("\n📈 PASO 4: Análisis de resultados")

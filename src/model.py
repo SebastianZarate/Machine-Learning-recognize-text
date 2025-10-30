@@ -755,23 +755,95 @@ def train_from_csv(csv_path: str,
     
     trained_models = train_all_models(X_train, y_train, verbose=True)
     
-    # ========== 8. GUARDAR MODELO COMPLETO ==========
-    print(f"\n💾 Guardando modelo completo en: {model_path}")
+    # ========== 8. EVALUAR MODELOS EN TEST SET ==========
+    # CRÍTICO: Evaluar SOLO en test set, NUNCA en train set
+    # Evaluar en train set inflaría artificialmente las métricas
+    print(f"\n📊 Evaluando modelos en test set...")
+    print(f"   • Test samples: {X_test.shape[0]:,}")
+    print(f"   • IMPORTANTE: Las métricas son sobre datos NUNCA VISTOS durante entrenamiento")
+    print()
+    
+    # Importar módulo de evaluación
+    from evaluation import evaluate_all_models
+    
+    # Evaluar todos los modelos entrenados
+    eval_results = evaluate_all_models(trained_models, X_test, y_test, verbose=False)
+    
+    # ========== 9. MOSTRAR RESULTADOS DE EVALUACIÓN ==========
+    print("\n" + "="*70)
+    print("📈 RESULTADOS DE EVALUACIÓN")
+    print("="*70)
+    
+    # Tabla comparativa
+    print(f"\n{'Model':<25} {'Accuracy':<10} {'Precision':<10} {'Recall':<10} {'F1-Score':<10} {'ROC-AUC':<10}")
+    print("-"*70)
+    
+    # Ordenar por F1-score
+    sorted_results = sorted(eval_results.items(), key=lambda x: x[1]['f1_score'], reverse=True)
+    
+    for model_name, metrics in sorted_results:
+        roc_str = f"{metrics['roc_auc']:.4f}" if metrics['roc_auc'] else "N/A"
+        print(f"{model_name:<25} "
+              f"{metrics['accuracy']:<10.4f} "
+              f"{metrics['precision']:<10.4f} "
+              f"{metrics['recall']:<10.4f} "
+              f"{metrics['f1_score']:<10.4f} "
+              f"{roc_str:<10}")
+    
+    # Identificar mejor modelo
+    best_model_name, best_metrics = sorted_results[0]
+    print("\n" + "="*70)
+    print(f"🏆 MEJOR MODELO: {best_model_name}")
+    print(f"   F1-Score: {best_metrics['f1_score']:.4f}")
+    print(f"   Accuracy: {best_metrics['accuracy']:.4f}")
+    if best_metrics['roc_auc']:
+        print(f"   ROC-AUC:  {best_metrics['roc_auc']:.4f}")
+    print("="*70)
+    
+    # Mostrar métricas detalladas del mejor modelo
+    print(f"\n📋 Métricas detalladas de {best_model_name}:")
+    print(f"\n{best_metrics['report']}")
+    
+    print(f"🔍 Matriz de Confusión ({best_model_name}):")
+    cm = best_metrics['confusion_matrix']
+    tn, fp, fn, tp = cm.ravel()
+    print(f"                    Predicted Negative  Predicted Positive")
+    print(f"   Actual Negative       {tn:6d}             {fp:6d}")
+    print(f"   Actual Positive       {fn:6d}             {tp:6d}")
+    print()
+    
+    # Interpretación de resultados
+    f1_score_val = best_metrics['f1_score']
+    if f1_score_val >= 0.90:
+        print("✅ EXCELENTE! Modelo listo para producción.")
+    elif f1_score_val >= 0.85:
+        print("✓ MUY BIEN! Rendimiento sólido.")
+    elif f1_score_val >= 0.80:
+        print("✓ BUENO. Considerar ajustes de hiperparámetros.")
+    else:
+        print("⚠️  NECESITA MEJORA. Revisar preprocesamiento y features.")
+    
+    # ========== 10. GUARDAR MODELO COMPLETO CON EVALUACIÓN ==========
+    print(f"\n💾 Guardando modelo completo con evaluación en: {model_path}")
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     
     model_data = {
         "vectorizer": vectorizer,
-        "models": trained_models,  # Diccionario con los 3 clasificadores entrenados
-        "X_test": X_test,          # Test features (para evaluación posterior)
-        "y_test": y_test,          # Test labels (para evaluación posterior)
-        "keywords": keywords,      # Palabras clave heurísticas (legacy)
-        "metadata": {              # Información adicional
+        "models": trained_models,         # Diccionario con los 3 clasificadores entrenados
+        "evaluation_results": eval_results,  # NUEVO: Resultados de evaluación
+        "best_model_name": best_model_name,  # NUEVO: Nombre del mejor modelo
+        "X_test": X_test,                 # Test features (para re-evaluación posterior)
+        "y_test": y_test,                 # Test labels (para re-evaluación posterior)
+        "keywords": keywords,             # Palabras clave heurísticas (legacy)
+        "metadata": {                     # Información adicional
             "train_samples": X_train.shape[0],
             "test_samples": X_test.shape[0],
             "n_features": X.shape[1],
             "test_size": test_size,
             "random_state": random_state,
-            "trained_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            "trained_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "best_f1_score": best_metrics['f1_score'],
+            "best_accuracy": best_metrics['accuracy']
         }
     }
     
@@ -782,14 +854,17 @@ def train_from_csv(csv_path: str,
     print(f"   • Tamaño del archivo: {file_size:.2f} MB")
     print(f"   • Modelos incluidos: {len(trained_models)}")
     print(f"   • Test set guardado: {X_test.shape[0]:,} muestras")
+    print(f"   • Evaluación guardada: {len(eval_results)} modelos")
+    print(f"   • Mejor modelo: {best_model_name} (F1={best_metrics['f1_score']:.4f})")
     
     print("\n" + "="*70)
-    print("✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE")
+    print("✅ ENTRENAMIENTO Y EVALUACIÓN COMPLETADOS EXITOSAMENTE")
     print("="*70)
     print("\n💡 Próximos pasos:")
-    print("   1. Evaluar modelos: evaluate_all_models(models, X_test, y_test)")
-    print("   2. Hacer predicciones: predict_text('Mi texto aquí', model_path)")
-    print("   3. Comparar métricas: accuracy, precision, recall, F1-score")
+    print("   1. Hacer predicciones: predict_text('Mi texto aquí', model_path)")
+    print("   2. Evaluación detallada: python test_evaluation.py")
+    print("   3. Modo interactivo: python test_predict_supervised.py")
+    print(f"\n🎯 Modelo recomendado para predicción: {best_model_name}")
     print("="*70 + "\n")
     
     return model_path
