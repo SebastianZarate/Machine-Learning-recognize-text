@@ -11,6 +11,7 @@ Date: 2025-10-29
 """
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, Any, List, Tuple, Optional
@@ -478,6 +479,195 @@ def compare_models_table(results: Dict[str, Dict[str, Any]]) -> None:
         print(f"   ROC-AUC:     {best_roc[0]:<25} ({best_roc[1]['roc_auc']:.4f})")
     
     print("="*100 + "\n")
+
+
+def compare_models(eval_results: Dict[str, Dict[str, Any]],
+                   sort_by: str = 'f1_score',
+                   ascending: bool = False) -> 'pd.DataFrame':
+    """Crea una tabla comparativa de todos los modelos evaluados.
+    
+    Genera un DataFrame de pandas con todas las métricas de rendimiento
+    para facilitar la comparación lado a lado de múltiples modelos.
+    
+    Args:
+        eval_results: Diccionario de resultados de evaluate_all_models()
+            {model_name: {metrics_dict}}
+        sort_by: Métrica por la cual ordenar (default: 'f1_score')
+            Opciones: 'accuracy', 'precision', 'recall', 'f1_score', 'roc_auc'
+        ascending: Si True, ordena ascendente; si False, descendente (default: False)
+    
+    Returns:
+        DataFrame de pandas con columnas:
+        - Model: Nombre del modelo
+        - Accuracy: Exactitud
+        - Precision: Precisión
+        - Recall: Sensibilidad
+        - F1-Score: Media armónica
+        - Specificity: Tasa de verdaderos negativos
+        - ROC-AUC: Área bajo curva ROC (0.0 si no disponible)
+    
+    Examples:
+        >>> results = evaluate_all_models(models, X_test, y_test)
+        >>> df = compare_models(results)
+        >>> print(df)
+                          Model  Accuracy  Precision    Recall  F1-Score  Specificity  ROC-AUC
+        0  Logistic Regression    0.8723     0.8801    0.8642    0.8715       0.8804   0.9456
+        1          Naive Bayes    0.8542     0.8621    0.8453    0.8536       0.8631   0.9234
+        2        Random Forest    0.8401     0.8489    0.8305    0.8392       0.8497   0.9123
+        
+        >>> # Ordenar por accuracy
+        >>> df = compare_models(results, sort_by='accuracy')
+        
+        >>> # Guardar a CSV
+        >>> df.to_csv('model_comparison.csv', index=False)
+        
+        >>> # Encontrar mejor modelo
+        >>> best_model = df.iloc[0]['Model']
+        >>> print(f"Mejor modelo: {best_model}")
+    
+    Notes:
+        - F1-Score es la mejor métrica cuando las clases están balanceadas
+        - Si hay desbalanceo, considera F1 ponderado o analizar precision/recall por separado
+        - ROC-AUC se establece en 0.0 si el modelo no tiene predict_proba
+        - La tabla se ordena por defecto de mejor a peor rendimiento
+    
+    Performance Tips:
+        - Para datasets balanceados: Usa F1-Score (default)
+        - Para minimizar falsos positivos: Usa Precision
+        - Para minimizar falsos negativos: Usa Recall
+        - Para evaluar discriminación: Usa ROC-AUC
+    """
+    import pandas as pd
+    
+    # Validar sort_by
+    valid_metrics = ['accuracy', 'precision', 'recall', 'f1_score', 'specificity', 'roc_auc']
+    if sort_by not in valid_metrics:
+        raise ValueError(
+            f"sort_by debe ser uno de {valid_metrics}. "
+            f"Recibido: '{sort_by}'"
+        )
+    
+    # Construir lista de diccionarios para DataFrame
+    comparison = []
+    
+    for model_name, metrics in eval_results.items():
+        comparison.append({
+            'Model': model_name,
+            'Accuracy': metrics['accuracy'],
+            'Precision': metrics['precision'],
+            'Recall': metrics['recall'],
+            'F1-Score': metrics['f1_score'],
+            'Specificity': metrics['specificity'],
+            'ROC-AUC': metrics['roc_auc'] if metrics['roc_auc'] is not None else 0.0
+        })
+    
+    # Crear DataFrame
+    df = pd.DataFrame(comparison)
+    
+    # Mapeo de nombres de columnas para ordenamiento
+    column_mapping = {
+        'accuracy': 'Accuracy',
+        'precision': 'Precision',
+        'recall': 'Recall',
+        'f1_score': 'F1-Score',
+        'specificity': 'Specificity',
+        'roc_auc': 'ROC-AUC'
+    }
+    
+    sort_column = column_mapping[sort_by]
+    
+    # Ordenar DataFrame
+    df = df.sort_values(sort_column, ascending=ascending)
+    
+    # Resetear índice para que sea secuencial
+    df = df.reset_index(drop=True)
+    
+    return df
+
+
+def print_comparison_table(eval_results: Dict[str, Dict[str, Any]],
+                          sort_by: str = 'f1_score',
+                          show_best_by_metric: bool = True) -> None:
+    """Imprime tabla comparativa de modelos en formato legible.
+    
+    Wrapper conveniente de compare_models() que imprime directamente
+    en lugar de retornar DataFrame.
+    
+    Args:
+        eval_results: Diccionario de resultados de evaluate_all_models()
+        sort_by: Métrica por la cual ordenar (default: 'f1_score')
+        show_best_by_metric: Si True, muestra mejor modelo por cada métrica
+    
+    Examples:
+        >>> results = evaluate_all_models(models, X_test, y_test)
+        >>> print_comparison_table(results)
+        
+        ==================================================================
+        📊 COMPARACIÓN DE MODELOS
+        ==================================================================
+        
+                          Model  Accuracy  Precision    Recall  F1-Score  Specificity  ROC-AUC
+        0  Logistic Regression    0.8723     0.8801    0.8642    0.8715       0.8804   0.9456
+        1          Naive Bayes    0.8542     0.8621    0.8453    0.8536       0.8631   0.9234
+        2        Random Forest    0.8401     0.8489    0.8305    0.8392       0.8497   0.9123
+        
+        🏆 Mejor modelo (por F1-Score): Logistic Regression (0.8715)
+    """
+    df = compare_models(eval_results, sort_by=sort_by)
+    
+    print("\n" + "="*80)
+    print("📊 COMPARACIÓN DE MODELOS")
+    print("="*80 + "\n")
+    
+    # Imprimir DataFrame con formato
+    print(df.to_string(index=False, float_format=lambda x: f'{x:.4f}'))
+    
+    # Mostrar mejor modelo
+    best_model = df.iloc[0]['Model']
+    
+    # Mapeo de sort_by a nombre de columna
+    column_mapping = {
+        'accuracy': 'Accuracy',
+        'precision': 'Precision',
+        'recall': 'Recall',
+        'f1_score': 'F1-Score',
+        'specificity': 'Specificity',
+        'roc_auc': 'ROC-AUC'
+    }
+    
+    sort_metric_name = column_mapping[sort_by]
+    best_value = df.iloc[0][sort_metric_name]
+    
+    print(f"\n🏆 Mejor modelo (por {sort_metric_name}): {best_model} ({best_value:.4f})")
+    
+    # Mostrar mejor por cada métrica si se solicita
+    if show_best_by_metric:
+        print("\n📈 Mejor modelo por métrica:")
+        
+        for metric in ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'Specificity', 'ROC-AUC']:
+            if metric == 'ROC-AUC':
+                # Excluir modelos sin ROC-AUC (0.0)
+                df_with_roc = df[df[metric] > 0.0]
+                if len(df_with_roc) > 0:
+                    best_idx = df_with_roc[metric].idxmax()
+                    best_name = df_with_roc.loc[best_idx, 'Model']
+                    best_val = df_with_roc.loc[best_idx, metric]
+                    print(f"   • {metric:12s}: {best_name:<25s} ({best_val:.4f})")
+            else:
+                best_idx = df[metric].idxmax()
+                best_name = df.loc[best_idx, 'Model']
+                best_val = df.loc[best_idx, metric]
+                print(f"   • {metric:12s}: {best_name:<25s} ({best_val:.4f})")
+    
+    print("\n" + "="*80)
+    
+    # Interpretación
+    print("\n💡 Interpretación:")
+    print(f"   • Dataset balanceado → F1-Score es la mejor métrica general")
+    print(f"   • Minimizar falsos positivos → Priorizar Precision")
+    print(f"   • Minimizar falsos negativos → Priorizar Recall")
+    print(f"   • Evaluar poder discriminatorio → Usar ROC-AUC")
+    print("="*80 + "\n")
 
 
 if __name__ == "__main__":
