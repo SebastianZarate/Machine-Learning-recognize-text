@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from typing import List, Dict, Any
 
 import joblib
@@ -581,99 +582,197 @@ FIRST_PERSON_PATTERNS = [
 ]
 
 
-def train_from_csv(csv_path: str, model_path: str = "models/review_model.joblib", keywords: List[str] = None, n_clusters: int = 50, sample_limit: int = 20000) -> str:
-    """Entrena un vectorizador TF-IDF sobre la columna 'review' del CSV y guarda un artefacto que incluye:
-    - vectorizer
-    - avg_vector (vector promedio del corpus de reseñas)
-    - keywords
-
-    Devuelve la ruta al modelo guardado.
+def train_from_csv(csv_path: str, 
+                   model_path: str = "models/review_model.joblib", 
+                   keywords: List[str] = None,
+                   test_size: float = 0.2,
+                   random_state: int = 42) -> str:
+    """Entrena clasificadores supervisados sobre el dataset y guarda el modelo completo.
+    
+    Este es el pipeline de entrenamiento principal que:
+    1. Carga el dataset balanceado (con columnas 'text'/'review' y 'label')
+    2. Preprocesa textos con clean_text()
+    3. Crea features TF-IDF
+    4. Divide en train/test con estratificación
+    5. Entrena 3 clasificadores supervisados (Naive Bayes, Logistic Regression, Random Forest)
+    6. Guarda todos los artefactos necesarios para predicción
+    
+    Args:
+        csv_path: Ruta al CSV con columnas 'text'/'review' (textos) y 'label' (0/1)
+        model_path: Ruta donde guardar el modelo entrenado (default: "models/review_model.joblib")
+        keywords: Lista de palabras clave para detección heurística (default: DEFAULT_KEYWORDS)
+        test_size: Proporción del dataset para test (default: 0.2 = 20%)
+        random_state: Semilla para reproducibilidad (default: 42)
+    
+    Returns:
+        Ruta al archivo del modelo guardado
+    
+    Raises:
+        ValueError: Si el CSV no contiene las columnas necesarias ('text'/'review' y 'label')
+        FileNotFoundError: Si el archivo CSV no existe
+    
+    Examples:
+        >>> # Entrenar con dataset balanceado
+        >>> model_path = train_from_csv("balanced_dataset.csv")
+        🚀 INICIO DEL PROCESO DE ENTRENAMIENTO
+        ✓ Dataset cargado: 100000 registros encontrados
+        ✓ Distribución de clases: Negative: 50000 (50.0%), Positive: 50000 (50.0%)
+        ...
+        
+        >>> # Entrenar con parámetros personalizados
+        >>> model_path = train_from_csv(
+        ...     "balanced_dataset.csv",
+        ...     model_path="models/custom_model.joblib",
+        ...     test_size=0.3,
+        ...     random_state=123
+        ... )
+    
+    Notes:
+        - El dataset DEBE estar balanceado para mejores resultados
+        - Test set NO se usa para entrenamiento (solo se guarda para evaluación posterior)
+        - TF-IDF se entrena solo con train set (evita data leakage)
+        - Modelos se entrenan con estratificación para preservar balance de clases
+        - El archivo guardado contiene: vectorizer, models, X_test, y_test, keywords
     """
+    # Import train_models here to avoid circular imports
+    from train_models import train_all_models
+    
     print("\n" + "="*70)
-    print("🚀 INICIO DEL PROCESO DE ENTRENAMIENTO")
+    print("🚀 INICIO DEL PROCESO DE ENTRENAMIENTO - CLASIFICADORES SUPERVISADOS")
     print("="*70 + "\n")
     
     if keywords is None:
         keywords = DEFAULT_KEYWORDS
     
+    # ========== 1. CARGAR DATASET ==========
     print(f"📂 Cargando dataset desde: {csv_path}")
     df = pd.read_csv(csv_path)
-    print(f"✓ Dataset cargado: {len(df)} registros encontrados\n")
+    print(f"✓ Dataset cargado: {len(df):,} registros encontrados\n")
     
-    # Soporte básico: buscar columna 'review' o 'text'
-    col = None
-    for c in ("review", "text", "texto"):
+    # ========== 2. VALIDAR COLUMNAS ==========
+    # Buscar columna de texto
+    text_col = None
+    for c in ("text", "review", "texto"):
         if c in df.columns:
-            col = c
+            text_col = c
             break
-    if col is None:
-        raise ValueError("El CSV debe contener una columna 'review' o 'text' con los textos de reseña.")
+    if text_col is None:
+        raise ValueError(
+            "El CSV debe contener una columna 'text' o 'review' con los textos. "
+            f"Columnas encontradas: {list(df.columns)}"
+        )
     
-    print(f"📝 Columna de texto detectada: '{col}'")
-    print(f"🧹 Limpiando y procesando {len(df)} textos...")
+    # Buscar columna de etiquetas
+    label_col = None
+    for c in ("label", "sentiment", "class", "y"):
+        if c in df.columns:
+            label_col = c
+            break
+    if label_col is None:
+        raise ValueError(
+            "El CSV debe contener una columna 'label' con las etiquetas (0/1). "
+            f"Columnas encontradas: {list(df.columns)}"
+        )
     
-    texts = df[col].astype(str).apply(clean_text).tolist()
+    print(f"📝 Columnas detectadas:")
+    print(f"   • Texto: '{text_col}'")
+    print(f"   • Etiquetas: '{label_col}'\n")
+    
+    # ========== 3. VERIFICAR BALANCE DE CLASES ==========
+    y = df[label_col].values
+    unique, counts = np.unique(y, return_counts=True)
+    print(f"📊 Distribución de clases:")
+    for label, count in zip(unique, counts):
+        percentage = (count / len(y)) * 100
+        label_name = "Negative" if label == 0 else "Positive"
+        print(f"   • {label_name} ({label}): {count:,} ({percentage:.1f}%)")
+    
+    # Warning si el dataset está desbalanceado
+    if len(counts) == 2 and abs(counts[0] - counts[1]) / len(y) > 0.2:
+        print(f"\n⚠️  ADVERTENCIA: Dataset desbalanceado detectado!")
+        print(f"   Se recomienda usar un dataset balanceado para mejores resultados.")
+        print(f"   Ver data_preparation.py -> create_balanced_dataset()\n")
+    else:
+        print(f"✓ Dataset balanceado correctamente\n")
+    
+    # ========== 4. PREPROCESAR TEXTOS ==========
+    print(f"🧹 Limpiando y procesando {len(df):,} textos...")
+    print(f"   • Pipeline: HTML → URLs → emails → mentions → hashtags → numbers → tokenize → stopwords → lemmatize")
+    
+    texts = df[text_col].astype(str).apply(clean_text).tolist()
     print(f"✓ Textos procesados correctamente\n")
     
+    # ========== 5. CREAR FEATURES TF-IDF ==========
     print(f"🔧 Configurando vectorizador TF-IDF...")
-    print(f"   • max_features: 10000")
-    print(f"   • ngram_range: (1, 2)")
+    print(f"   • max_features: 10,000")
+    print(f"   • ngram_range: (1, 2) - unigramas y bigramas")
+    print(f"   • min_df: 5 - ignorar términos que aparecen en menos de 5 documentos")
     
-    vectorizer = TfidfVectorizer(max_features=10000, ngram_range=(1, 2))
+    vectorizer = TfidfVectorizer(
+        max_features=10000,
+        ngram_range=(1, 2),
+        min_df=5,
+        sublinear_tf=True  # Usar escala logarítmica para term frequency
+    )
     
     print(f"\n⚙️  Entrenando vectorizador TF-IDF...")
     X = vectorizer.fit_transform(texts)
     print(f"✓ Vectorización completada")
-    print(f"   • Matriz generada: {X.shape[0]} documentos x {X.shape[1]} características\n")
-
-    # intentamos calcular centroides por clustering (más robusto que el vector promedio)
-    centroids = None
-    try:
-        print(f"🔍 Calculando centroides mediante clustering...")
-        
-        # reducir muestra si el dataset es grande
-        if X.shape[0] > sample_limit:
-            print(f"   • Dataset grande detectado ({X.shape[0]} documentos)")
-            print(f"   • Reduciendo muestra a {sample_limit} documentos para clustering")
-            idx = np.random.choice(X.shape[0], sample_limit, replace=False)
-            X_sample = X[idx]
-        else:
-            X_sample = X
-            print(f"   • Usando dataset completo para clustering ({X.shape[0]} documentos)")
-
-        actual_clusters = min(n_clusters, X_sample.shape[0])
-        print(f"   • Número de clusters: {actual_clusters}")
-        print(f"   • Ejecutando MiniBatchKMeans...")
-        
-        kmeans = MiniBatchKMeans(n_clusters=actual_clusters, random_state=123)
-        kmeans.fit(X_sample)
-        centroids = kmeans.cluster_centers_
-        
-        print(f"✓ Clustering completado: {centroids.shape[0]} centroides generados")
-
-        # Normalizar centroides (L2) para que la similitud coseno funcione mejor
-        try:
-            print(f"   • Normalizando centroides (L2)...")
-            norms = np.linalg.norm(centroids, axis=1, keepdims=True)
-            norms[norms == 0] = 1.0
-            centroids = centroids / norms
-            print(f"✓ Centroides normalizados correctamente\n")
-        except Exception as e:
-            print(f"⚠️  Advertencia: No se pudieron normalizar centroides: {e}\n")
-            
-    except Exception as e:
-        print(f"⚠️  Advertencia: Clustering falló, usando vector promedio")
-        print(f"   Error: {e}")
-        centroids = np.asarray(X.mean(axis=0)).ravel().reshape(1, -1)
-        print(f"✓ Vector promedio calculado como fallback\n")
-
-    print(f"💾 Guardando modelo en: {model_path}")
+    print(f"   • Matriz generada: {X.shape[0]:,} documentos × {X.shape[1]:,} características")
+    print(f"   • Sparsity: {(1.0 - X.nnz / (X.shape[0] * X.shape[1])) * 100:.2f}%\n")
+    
+    # ========== 6. DIVIDIR EN TRAIN/TEST ==========
+    print(f"✂️  Dividiendo dataset en train/test...")
+    print(f"   • Test size: {test_size * 100:.0f}%")
+    print(f"   • Random state: {random_state}")
+    print(f"   • Stratify: True (preserva balance de clases)")
+    
+    from sklearn.model_selection import train_test_split
+    
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=y  # CRÍTICO: Preservar balance de clases en train/test
+    )
+    
+    print(f"✓ Dataset dividido:")
+    print(f"   • Train: {X_train.shape[0]:,} muestras ({(1-test_size)*100:.0f}%)")
+    print(f"   • Test:  {X_test.shape[0]:,} muestras ({test_size*100:.0f}%)")
+    
+    # Verificar balance en splits
+    train_pos = np.sum(y_train == 1)
+    test_pos = np.sum(y_test == 1)
+    print(f"   • Train positivos: {train_pos:,} ({train_pos/len(y_train)*100:.1f}%)")
+    print(f"   • Test positivos:  {test_pos:,} ({test_pos/len(y_test)*100:.1f}%)\n")
+    
+    # ========== 7. ENTRENAR CLASIFICADORES SUPERVISADOS ==========
+    print(f"🤖 Entrenando clasificadores supervisados...")
+    print(f"   • Naive Bayes")
+    print(f"   • Logistic Regression")
+    print(f"   • Random Forest")
+    print()
+    
+    trained_models = train_all_models(X_train, y_train, verbose=True)
+    
+    # ========== 8. GUARDAR MODELO COMPLETO ==========
+    print(f"\n💾 Guardando modelo completo en: {model_path}")
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     
     model_data = {
-        "vectorizer": vectorizer, 
-        "centroids": centroids, 
-        "keywords": keywords
+        "vectorizer": vectorizer,
+        "models": trained_models,  # Diccionario con los 3 clasificadores entrenados
+        "X_test": X_test,          # Test features (para evaluación posterior)
+        "y_test": y_test,          # Test labels (para evaluación posterior)
+        "keywords": keywords,      # Palabras clave heurísticas (legacy)
+        "metadata": {              # Información adicional
+            "train_samples": X_train.shape[0],
+            "test_samples": X_test.shape[0],
+            "n_features": X.shape[1],
+            "test_size": test_size,
+            "random_state": random_state,
+            "trained_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
     }
     
     joblib.dump(model_data, model_path)
@@ -681,79 +780,244 @@ def train_from_csv(csv_path: str, model_path: str = "models/review_model.joblib"
     file_size = os.path.getsize(model_path) / 1024 / 1024  # MB
     print(f"✓ Modelo guardado exitosamente")
     print(f"   • Tamaño del archivo: {file_size:.2f} MB")
-    print(f"   • Palabras clave incluidas: {len(keywords)}")
+    print(f"   • Modelos incluidos: {len(trained_models)}")
+    print(f"   • Test set guardado: {X_test.shape[0]:,} muestras")
     
     print("\n" + "="*70)
     print("✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE")
+    print("="*70)
+    print("\n💡 Próximos pasos:")
+    print("   1. Evaluar modelos: evaluate_all_models(models, X_test, y_test)")
+    print("   2. Hacer predicciones: predict_text('Mi texto aquí', model_path)")
+    print("   3. Comparar métricas: accuracy, precision, recall, F1-score")
     print("="*70 + "\n")
     
     return model_path
 
 
-def predict_text(text: str, model_path: str = "models/review_model.joblib", keyword_weight: float = 0.25, sim_weight: float = 0.15, eval_weight: float = 0.4, first_person_weight: float = 0.2) -> Dict[str, Any]:
-    """Predice si `text` es una reseña de cine combinando keywords y similitud coseno.
-
-    Retorna un diccionario con: is_review (bool), probability (0..1), similarity, keyword_score (0..1), matched_keywords (list)
+def predict_text(text: str, 
+                 model_path: str = "models/review_model.joblib",
+                 voting_strategy: str = "majority",
+                 preferred_model: str = "Logistic Regression",
+                 return_details: bool = True) -> Dict[str, Any]:
+    """Predice si un texto es una reseña de película usando clasificadores supervisados.
+    
+    Esta función usa los modelos de Machine Learning entrenados para hacer predicciones
+    en lugar de reglas heurísticas. Soporta diferentes estrategias de decisión:
+    - Majority voting: La decisión final se basa en el voto de la mayoría de modelos
+    - Preferred model: Usa solo un modelo específico (ej: el mejor en validación)
+    - Weighted average: Promedio ponderado de probabilidades
+    
+    Args:
+        text: Texto a clasificar
+        model_path: Ruta al archivo del modelo entrenado (default: "models/review_model.joblib")
+        voting_strategy: Estrategia de decisión (default: "majority")
+            - "majority": Voto mayoritario (≥2 de 3 modelos)
+            - "unanimous": Los 3 modelos deben estar de acuerdo
+            - "preferred": Usa solo el modelo especificado en preferred_model
+            - "weighted_avg": Promedio ponderado de probabilidades (si disponible)
+        preferred_model: Nombre del modelo a usar si voting_strategy="preferred"
+            Opciones: "Naive Bayes", "Logistic Regression", "Random Forest"
+        return_details: Si True, incluye análisis detallado de keywords (default: True)
+    
+    Returns:
+        Diccionario con la predicción y métricas:
+        {
+            'is_review': bool,                    # Predicción final
+            'final_decision': str,                # "review" o "not_review"
+            'confidence': float,                  # Confianza de la predicción (0-1)
+            'voting_strategy': str,               # Estrategia usada
+            'predictions_by_model': {             # Predicciones individuales
+                'Naive Bayes': {
+                    'prediction': int,            # 0 o 1
+                    'probability': float          # Probabilidad clase 1 (si disponible)
+                },
+                'Logistic Regression': {...},
+                'Random Forest': {...}
+            },
+            'votes': {                            # Resumen de votos
+                'positive': int,                  # Votos por "es reseña"
+                'negative': int,                  # Votos por "no es reseña"
+                'total': int                      # Total de modelos
+            },
+            'text_preview': str,                  # Primeros 100 chars
+            'text_length': int,                   # Longitud del texto
+            'keywords_analysis': {                # Análisis heurístico (opcional)
+                'keyword_score': float,
+                'matched_keywords': list,
+                'eval_score': float,
+                'matched_evaluative': list
+            }
+        }
+    
+    Examples:
+        >>> # Predicción básica con majority voting
+        >>> result = predict_text("Esta película es increíble! La actuación fue magistral.")
+        >>> print(f"Es reseña: {result['is_review']}")
+        >>> print(f"Confianza: {result['confidence']:.2%}")
+        
+        >>> # Usar solo Logistic Regression
+        >>> result = predict_text(
+        ...     "Esta película es increíble!",
+        ...     voting_strategy="preferred",
+        ...     preferred_model="Logistic Regression"
+        ... )
+        
+        >>> # Decisión unánime (más conservadora)
+        >>> result = predict_text("Texto ambiguo", voting_strategy="unanimous")
+        
+        >>> # Promedio ponderado de probabilidades
+        >>> result = predict_text("Texto", voting_strategy="weighted_avg")
+    
+    Raises:
+        FileNotFoundError: Si el modelo no existe en model_path
+        ValueError: Si voting_strategy o preferred_model no son válidos
+        KeyError: Si el modelo no contiene los clasificadores entrenados
+    
+    Notes:
+        - El texto se preprocesa automáticamente con preprocess_text()
+        - Si un modelo no tiene predict_proba, se usa solo la predicción binaria
+        - El análisis de keywords se mantiene para explicabilidad pero NO afecta la decisión
+        - Majority voting es la estrategia más robusta para la mayoría de casos
+        - Preferred model es útil si conoces el mejor modelo en validación
     """
+    # Validar estrategia de voting
+    valid_strategies = ["majority", "unanimous", "preferred", "weighted_avg"]
+    if voting_strategy not in valid_strategies:
+        raise ValueError(
+            f"voting_strategy debe ser uno de {valid_strategies}. "
+            f"Recibido: '{voting_strategy}'"
+        )
+    
+    # Verificar que el modelo existe
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Modelo no encontrado en {model_path}. Entrene primero con train_from_csv().")
-
+        raise FileNotFoundError(
+            f"Modelo no encontrado en {model_path}. "
+            f"Entrene primero con train_from_csv()"
+        )
+    
+    # ========== 1. CARGAR MODELO Y ARTEFACTOS ==========
     obj = joblib.load(model_path)
     vectorizer: TfidfVectorizer = obj["vectorizer"]
-    centroids = obj.get("centroids", None)
+    models = obj.get("models", None)
     keywords: List[str] = obj.get("keywords", DEFAULT_KEYWORDS)
-
-    text_clean = clean_text(text)
-
-    # keywords
-    matched = [k for k in keywords if k in text_clean]
-    keyword_score = len(matched) / len(keywords) if keywords else 0.0
-
-    # evaluative words (señal de opinión)
-    eval_matched = [w for w in EVALUATIVE_WORDS if w in text_clean]
-    eval_score = min(1.0, len(eval_matched) / 3.0) if EVALUATIVE_WORDS else 0.0
-
-    # primera persona / frases típicas de reseña
-    first_person_matched = [p for p in FIRST_PERSON_PATTERNS if p in text_clean]
-    first_person_score = 1.0 if len(first_person_matched) > 0 else 0.0
-
-    vec = vectorizer.transform([text_clean])
-
-    sim = 0.0
-    try:
-        if centroids is None:
-            sim = 0.0
+    
+    # Validar que el modelo tiene clasificadores entrenados
+    if models is None or len(models) == 0:
+        raise KeyError(
+            "El modelo no contiene clasificadores entrenados. "
+            "El archivo puede ser de una versión antigua. "
+            "Re-entrene con train_from_csv()"
+        )
+    
+    # Validar preferred_model si se usa estrategia "preferred"
+    if voting_strategy == "preferred" and preferred_model not in models:
+        raise ValueError(
+            f"Modelo '{preferred_model}' no encontrado. "
+            f"Modelos disponibles: {list(models.keys())}"
+        )
+    
+    # ========== 2. PREPROCESAR TEXTO ==========
+    text_clean = preprocess_text(text)
+    text_vector = vectorizer.transform([text_clean])
+    
+    # ========== 3. PREDECIR CON CADA MODELO ==========
+    predictions = {}
+    
+    for model_name, model in models.items():
+        # Predicción binaria (0 o 1)
+        pred = model.predict(text_vector)[0]
+        
+        # Probabilidad (si el modelo lo soporta)
+        proba = None
+        if hasattr(model, 'predict_proba'):
+            try:
+                # predict_proba retorna array 2D: [[prob_clase_0, prob_clase_1]]
+                proba_array = model.predict_proba(text_vector)[0]
+                proba = proba_array[1]  # Probabilidad de clase 1 (es reseña)
+            except Exception as e:
+                print(f"⚠️  Warning: No se pudo obtener probabilidad de {model_name}: {e}")
+                proba = None
+        
+        predictions[model_name] = {
+            'prediction': int(pred),
+            'probability': float(proba) if proba is not None else None
+        }
+    
+    # ========== 4. CALCULAR VOTOS ==========
+    votes_positive = sum(p['prediction'] for p in predictions.values())
+    votes_negative = len(predictions) - votes_positive
+    
+    # ========== 5. DECISIÓN FINAL SEGÚN ESTRATEGIA ==========
+    final_prediction = 0
+    confidence = 0.0
+    
+    if voting_strategy == "majority":
+        # Mayoría simple (≥2 de 3 votos)
+        final_prediction = 1 if votes_positive >= len(predictions) / 2 else 0
+        # Confianza basada en proporción de votos
+        confidence = votes_positive / len(predictions) if final_prediction == 1 else votes_negative / len(predictions)
+    
+    elif voting_strategy == "unanimous":
+        # Todos los modelos deben estar de acuerdo
+        final_prediction = 1 if votes_positive == len(predictions) else 0
+        confidence = 1.0 if votes_positive in [0, len(predictions)] else 0.0
+    
+    elif voting_strategy == "preferred":
+        # Usar solo el modelo preferido
+        final_prediction = predictions[preferred_model]['prediction']
+        proba = predictions[preferred_model]['probability']
+        confidence = proba if proba is not None else 1.0
+    
+    elif voting_strategy == "weighted_avg":
+        # Promedio ponderado de probabilidades (si disponible)
+        probas = [p['probability'] for p in predictions.values() if p['probability'] is not None]
+        if len(probas) > 0:
+            avg_proba = np.mean(probas)
+            final_prediction = 1 if avg_proba >= 0.5 else 0
+            confidence = avg_proba if final_prediction == 1 else (1.0 - avg_proba)
         else:
-            # centroids puede ser (k, n_features) o vector (1, n_features)
-            sims = cosine_similarity(vec, centroids)
-            # tomar la media de las top-3 similitudes para evitar depender de un solo centro
-            if sims.ndim == 2:
-                topk = min(3, sims.shape[1])
-                top_vals = np.sort(sims[0])[::-1][:topk]
-                sim = float(np.mean(top_vals))
-            else:
-                sim = float(sims)
-    except Exception:
-        sim = 0.0
-
-    final = sim_weight * sim + keyword_weight * keyword_score + eval_weight * eval_score + first_person_weight * first_person_score
-    # normalizar si centroids es un solo vector promedio que produce valores bajos
-    # límite final en [0,1]
-    final = max(0.0, min(1.0, final))
-
-    is_review = final >= 0.35
-
-    return {
-        "is_review": bool(is_review),
-        "probability": float(final),
-        "similarity": float(sim),
-        "keyword_score": float(keyword_score),
-        "eval_score": float(eval_score),
-        "first_person_score": float(first_person_score),
-        "matched_keywords": matched,
-        "matched_evaluative": eval_matched,
-        "matched_first_person": first_person_matched,
+            # Fallback a majority voting si no hay probabilidades
+            final_prediction = 1 if votes_positive >= len(predictions) / 2 else 0
+            confidence = votes_positive / len(predictions) if final_prediction == 1 else votes_negative / len(predictions)
+    
+    # ========== 6. ANÁLISIS DE KEYWORDS (OPCIONAL, PARA EXPLICABILIDAD) ==========
+    keywords_analysis = None
+    if return_details:
+        matched_keywords = [k for k in keywords if k in text_clean]
+        keyword_score = len(matched_keywords) / len(keywords) if keywords else 0.0
+        
+        eval_matched = [w for w in EVALUATIVE_WORDS if w in text_clean]
+        eval_score = min(1.0, len(eval_matched) / 3.0) if EVALUATIVE_WORDS else 0.0
+        
+        keywords_analysis = {
+            'keyword_score': float(keyword_score),
+            'matched_keywords': matched_keywords,
+            'eval_score': float(eval_score),
+            'matched_evaluative': eval_matched[:5]  # Limitar a 5 para no saturar output
+        }
+    
+    # ========== 7. CONSTRUIR RESPUESTA ==========
+    result = {
+        'is_review': bool(final_prediction),
+        'final_decision': 'review' if final_prediction == 1 else 'not_review',
+        'confidence': float(confidence),
+        'voting_strategy': voting_strategy,
+        'predictions_by_model': predictions,
+        'votes': {
+            'positive': votes_positive,
+            'negative': votes_negative,
+            'total': len(predictions)
+        },
+        'text_preview': text[:100] + '...' if len(text) > 100 else text,
+        'text_length': len(text)
     }
+    
+    # Agregar análisis de keywords si se solicitó
+    if keywords_analysis is not None:
+        result['keywords_analysis'] = keywords_analysis
+    
+    return result
 
 
 if __name__ == "__main__":
