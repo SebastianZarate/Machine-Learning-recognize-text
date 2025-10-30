@@ -142,6 +142,116 @@ def plot_model_comparison_bars(eval_results: Dict[str, Dict[str, Any]],
     return fig
 
 
+def plot_metrics_comparison(eval_results: Dict[str, Dict[str, Any]],
+                           metrics: List[str] = ['accuracy', 'precision', 'recall', 'f1_score'],
+                           figsize: Tuple[int, int] = (12, 6),
+                           title: str = 'Model Performance Comparison') -> plt.Figure:
+    """Muestra barras comparando accuracy, precision, recall, F1 de todos los modelos.
+    
+    Una visualización side-by-side de métricas facilita identificar el mejor
+    modelo de un vistazo. Es más intuitivo que una tabla de números.
+    
+    Args:
+        eval_results: Diccionario de resultados de evaluate_all_models()
+            {model_name: {metrics_dict}}
+        metrics: Lista de métricas a comparar
+            Default: ['accuracy', 'precision', 'recall', 'f1_score']
+        figsize: Tamaño de la figura (ancho, alto) en pulgadas
+        title: Título del gráfico
+    
+    Returns:
+        plt.Figure: Figura de matplotlib que puede ser guardada o mostrada
+    
+    Examples:
+        >>> # Después de evaluar modelos
+        >>> eval_results = evaluate_all_models(models, X_test, y_test)
+        >>> 
+        >>> # Comparación básica (4 métricas principales)
+        >>> fig = plot_metrics_comparison(eval_results)
+        >>> fig.savefig('models/metrics_comparison.png', dpi=300, bbox_inches='tight')
+        >>> plt.close()
+        
+        >>> # Comparación personalizada
+        >>> fig = plot_metrics_comparison(
+        ...     eval_results,
+        ...     metrics=['accuracy', 'recall', 'f1_score'],
+        ...     title='Comparación de Modelos - Métricas Clave'
+        ... )
+        >>> plt.show()
+    
+    Notes:
+        **Punto crítico**: Escala de 0 a 1 para todas las métricas.
+        Si incluyes accuracy que es 0.95 y recall que es 0.60, ambas deben
+        verse en la misma escala para comparar visualmente. Esta función
+        garantiza que todas las métricas se muestren en el rango 0-1.
+        
+        **Por qué es importante:**
+        - Comparación visual más fácil que tablas de números
+        - Identifica el mejor modelo de un vistazo
+        - Muestra fortalezas y debilidades de cada modelo
+        - Útil para presentaciones y reportes
+    """
+    model_names = list(eval_results.keys())
+    n_metrics = len(metrics)
+    n_models = len(model_names)
+    
+    # Preparar datos
+    data = {metric: [] for metric in metrics}
+    for model_name in model_names:
+        for metric in metrics:
+            value = eval_results[model_name].get(metric)
+            # Manejar valores None (ej: ROC-AUC para algunos modelos)
+            if value is None:
+                value = 0.0
+            data[metric].append(value)
+    
+    # Configurar barras
+    x = np.arange(n_models)
+    width = 0.8 / n_metrics
+    
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Dibujar barras para cada métrica
+    for idx, metric in enumerate(metrics):
+        offset = (idx - n_metrics/2 + 0.5) * width
+        bars = ax.bar(
+            x + offset, 
+            data[metric], 
+            width,
+            label=metric.replace('_', ' ').title(),
+            alpha=0.85
+        )
+        
+        # Agregar valores sobre barras
+        for bar in bars:
+            height = bar.get_height()
+            if height > 0:  # Solo mostrar si no es 0
+                ax.text(
+                    bar.get_x() + bar.get_width()/2., 
+                    height,
+                    f'{height:.3f}',
+                    ha='center', 
+                    va='bottom', 
+                    fontsize=8
+                )
+    
+    # Configurar ejes y etiquetas
+    ax.set_xlabel('Models', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Score', fontsize=12, fontweight='bold')
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+    ax.set_xticks(x)
+    ax.set_xticklabels(model_names, rotation=15, ha='right')
+    ax.legend(loc='lower right', fontsize=10)
+    
+    # Punto crítico: Escala 0 a 1 para todas las métricas
+    ax.set_ylim(0, 1.1)
+    ax.grid(axis='y', alpha=0.3, linestyle='--')
+    
+    plt.tight_layout()
+    
+    return fig
+
+
 def plot_confusion_matrices(eval_results: Dict[str, Dict[str, Any]],
                             figsize: Tuple[int, int] = (15, 5),
                             cmap: str = 'Blues') -> plt.Figure:
